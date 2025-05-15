@@ -8,6 +8,7 @@ export default function ContractFormulaCalculator() {
   const [balance, setBalance] = useState(1000);
   const [openFeeRate, setOpenFeeRate] = useState(0.0003);
   const [closeFeeRate, setCloseFeeRate] = useState(0.0005);
+  const [log, setLog] = useState('');
 
   const [entryPrice, setEntryPrice] = useState('');
   const [quantity, setQuantity] = useState('');
@@ -37,12 +38,12 @@ export default function ContractFormulaCalculator() {
 
   const calculatePnL = (ep, mp, qty, dir) => {
     const delta = dir === 'long' ? mp - ep : ep - mp;
-    return (delta * qty * contractValue).toFixed(2);
+    const pnl = delta * qty * contractValue;
+    return pnl.toFixed(2);
   };
 
   const calculateLiquidationPrice = (ep, qty, dir, lvg) => {
     const mmr = maintenanceMarginRate;
-    const val = contractValue;
     const liqPrice = dir === 'long'
       ? ep * (1 - (1 / lvg) + mmr)
       : ep * (1 + (1 / lvg) - mmr);
@@ -62,6 +63,18 @@ export default function ContractFormulaCalculator() {
     const updated = [...positions];
     updated[index].closed = true;
     setPositions(updated);
+  };
+
+  const logCalculation = (type, pos) => {
+    let message = '';
+    if (type === 'pnl') {
+      const delta = pos.direction === 'long' ? `${pos.currentPrice} - ${pos.entryPrice}` : `${pos.entryPrice} - ${pos.currentPrice}`;
+      message = `盈亏计算: (${delta}) * ${pos.quantity} * ${contractValue} = ${pos.pnl}`;
+    } else if (type === 'liq') {
+      const mmr = maintenanceMarginRate;
+      message = `爆仓价计算: ${pos.direction === 'long' ? `${pos.entryPrice} * (1 - 1/${pos.leverage} + ${mmr})` : `${pos.entryPrice} * (1 + 1/${pos.leverage} - ${mmr})`} = ${pos.liquidationPrice}`;
+    }
+    setLog(message);
   };
 
   useEffect(() => {
@@ -162,8 +175,8 @@ export default function ContractFormulaCalculator() {
                 <td className="p-2 border text-center">{pos.leverage}</td>
                 <td className="p-2 border text-center">{pos.entryPrice}</td>
                 <td className="p-2 border text-center">{pos.currentPrice}</td>
-                <td className="p-2 border text-center">{pos.liquidationPrice}</td>
-                <td className="p-2 border text-center">{pos.pnl}</td>
+                <td className="p-2 border text-center text-blue-500 cursor-pointer" onClick={() => logCalculation('liq', pos)}>{pos.liquidationPrice}</td>
+                <td className="p-2 border text-center text-blue-500 cursor-pointer" onClick={() => logCalculation('pnl', pos)}>{pos.pnl}</td>
                 <td className="p-2 border text-center">{pos.quantity}</td>
                 <td className="p-2 border text-center">
                   {pos.closed ? (
@@ -176,6 +189,12 @@ export default function ContractFormulaCalculator() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* 底部 Console 输出区 */}
+      <div className="col-span-3 mt-4 bg-black text-green-400 p-4 rounded font-mono text-sm">
+        <strong>计算日志:</strong>
+        <pre>{log}</pre>
       </div>
     </div>
   );
