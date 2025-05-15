@@ -195,7 +195,8 @@ export default function ContractFormulaCalculator() {
       </div>
     </div>
   </div>
-<div className="col-span-3 grid grid-cols-3 gap-4">
+{/* 原有内容 */}
+  <div className="col-span-3 grid grid-cols-3 gap-4">
     <div className="col-span-1 bg-white p-4 border rounded mb-4">
       <h3 className="text-lg font-bold mb-2">账户信息</h3>
       <div className="grid grid-cols-1 gap-2 text-sm">
@@ -262,6 +263,7 @@ export default function ContractFormulaCalculator() {
       </table>
     </div>
   </div>
+
 
 
 
