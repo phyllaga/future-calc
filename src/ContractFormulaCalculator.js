@@ -223,7 +223,7 @@ export default function ContractFormulaCalculator() {
    <div className="col-span-3 grid grid-cols-3 gap-4">
     <div className="col-span-1 bg-white p-4 border rounded mb-4">
       <h3 className="text-lg font-bold mb-2">账户信息</h3>
-      <div className=\"grid grid-cols-1 gap-2 text-sm\">
+      <div className="grid grid-cols-1 gap-2 text-sm\">
         <div className=\"cursor-pointer\" onClick={() => setLogs(prev => [...prev, `已实现盈亏 = ${totalRealizedPnl.toFixed(2)}`])}>已实现盈亏：{totalRealizedPnl.toFixed(2)}</div>
         <div className="cursor-pointer" onClick={() => setLogs(prev => [...prev, `当前余额 = 初始余额 = ${initialBalance.toFixed(2)}`])}>当前余额：{initialBalance.toFixed(2)}</div>
         <div className="cursor-pointer" onClick={() => setLogs(prev => [...prev, `逐仓保证金 = ${totalMarginIsolated.toFixed(2)}`])}>逐仓保证金占用：{totalMarginIsolated.toFixed(2)}</div>
