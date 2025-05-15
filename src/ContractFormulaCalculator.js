@@ -6,7 +6,8 @@ export default function ContractFormulaCalculator() {
   const [currentPrice, setCurrentPrice] = useState(20000);
   const [maintenanceMarginRate, setMaintenanceMarginRate] = useState(0.005);
   const [contractValue, setContractValue] = useState(0.0001);
-  const [initialBalance, setInitialBalance] = useState(1000);
+  const [startingBalance, setStartingBalance] = useState(1000); // 原始初始余额
+  const [currentBalance, setCurrentBalance] = useState(1000);   // 当前余额
   const [feeRate, setFeeRate] = useState(0.0004);
   const [logs, setLogs] = useState([]);
 
@@ -25,7 +26,7 @@ export default function ContractFormulaCalculator() {
     const margin = positionValue / leverage;
     const fee = positionValue * feeRate;
     const maintenanceMargin = positionValue * maintenanceMarginRate;
-    const dex = initialBalance - maintenanceMargin - fee;
+    const dex = currentBalance - maintenanceMargin - fee;
     const liquidationPrice = marginType === 'isolated'
       ? (direction === 'long'
           ? ((maintenanceMargin - (margin - fee)) + positionValue) / (qty * contractValue)
@@ -68,7 +69,7 @@ export default function ContractFormulaCalculator() {
       const margin = positionValue / pos.leverage;
       const fee = positionValue * feeRate;
       const maintenanceMargin = positionValue * maintenanceMarginRate;
-      const dex = initialBalance - maintenanceMargin - fee;
+      const dex = currentBalance - maintenanceMargin - fee;
       const liquidationPrice = pos.marginType === 'isolated'
         ? (pos.direction === 'long'
             ? ((maintenanceMargin - (margin - fee)) + positionValue) / (pos.quantity * contractValue)
@@ -105,12 +106,16 @@ export default function ContractFormulaCalculator() {
     pos.closePrice = closePrice;
     pos.realizedPnl = pnl;
 
-    setInitialBalance(prev => prev + pnl - fee);
+    setCurrentBalance(prev => {
+      const newBalance = prev + pnl - fee;
+      setLogs(prevLogs => [
+        ...prevLogs,
+        `平仓：${pos.symbol} ${translateDirection(pos.direction)} @${closePrice}，盈亏=${pnl}，手续费=${fee}，当前余额=${newBalance.toFixed(2)}`
+      ]);
+      return newBalance;
+    });
+
     setPositions(updated);
-    setLogs(prev => [
-      ...prev,
-      `平仓：${pos.symbol} ${translateDirection(pos.direction)} @${closePrice}，盈亏=${pnl}，手续费=${fee}`
-    ]);
   };
 
   const deletePosition = (index) => {
@@ -139,7 +144,7 @@ export default function ContractFormulaCalculator() {
     const totalMarginIsolated = positions.filter(p => p.marginType === 'isolated' && !p.closed).reduce((sum, p) => sum + parseFloat(p.margin), 0);
     const totalFee = positions.filter(p => !p.closed).reduce((sum, p) => sum + parseFloat(p.fee), 0);
     const totalUnrealizedPnl = positions.filter(p => !p.closed).reduce((sum, p) => sum + parseFloat(p.pnl), 0);
-    const dex = initialBalance - totalFee - totalMarginCross - totalMarginIsolated;
+    const dex = currentBalance - totalFee - totalMarginCross - totalMarginIsolated;
     const availableMargin = dex;
     return { totalMarginCross, totalMarginIsolated, totalFee, totalUnrealizedPnl, dex, availableMargin };
   };
@@ -149,8 +154,7 @@ export default function ContractFormulaCalculator() {
 
   useEffect(() => {
     recalculateAllPositions();
-  }, [currentPrice, maintenanceMarginRate, feeRate, initialBalance]);
-
+  }, [currentPrice, maintenanceMarginRate, feeRate, currentBalance]);
 
   return (
     <>
