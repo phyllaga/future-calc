@@ -5,7 +5,7 @@ export default function ContractFormulaCalculator() {
   const [symbol, setSymbol] = useState('BTC/USDT');
   const [currentPrice, setCurrentPrice] = useState(20000);
   const [maintenanceMarginRate, setMaintenanceMarginRate] = useState(0.005);
-  const [contractValue, setContractValue] = useState(1);
+  const [contractValue, setContractValue] = useState(0.0001);
   const [initialBalance, setInitialBalance] = useState(1000);
   const [feeRate, setFeeRate] = useState(0.0004);
   const [logs, setLogs] = useState([]);
@@ -47,6 +47,8 @@ export default function ContractFormulaCalculator() {
       dex: dex.toFixed(2),
       liquidationPrice,
       pnl: calculatePnL(ep, currentPrice, qty, direction),
+      closePrice: null,
+      realizedPnl: null
     };
     setPositions([...positions, pos]);
   };
@@ -83,9 +85,25 @@ export default function ContractFormulaCalculator() {
   };
 
   const closePosition = (index) => {
+    const closePrice = parseFloat(prompt('请输入平仓价格'));
+    if (isNaN(closePrice)) return;
+
     const updated = [...positions];
-    updated[index].closed = true;
+    const pos = updated[index];
+    const pnl = parseFloat(calculatePnL(pos.entryPrice, closePrice, pos.quantity, pos.direction));
+    const fee = parseFloat(pos.fee);
+
+    pos.closed = true;
+    pos.closePrice = closePrice;
+    pos.realizedPnl = pnl;
+
+    // 更新账户余额（初始余额 + 盈亏 - 手续费）
+    setInitialBalance(prev => prev + pnl - fee);
     setPositions(updated);
+    setLogs(prev => [
+      ...prev,
+      `平仓：${pos.symbol} ${translateDirection(pos.direction)} @${closePrice}，盈亏=${pnl}，手续费=${fee}，更新余额=${(initialBalance + pnl - fee).toFixed(2)}`
+    ]);
   };
 
   const deletePosition = (index) => {
@@ -124,6 +142,7 @@ export default function ContractFormulaCalculator() {
     return { totalMarginCross, totalMarginIsolated, totalFee, totalUnrealizedPnl, dex, availableMargin };
   };
 
+  const totalRealizedPnl = positions.filter(p => p.closed && p.realizedPnl !== null).reduce((sum, p) => sum + parseFloat(p.realizedPnl), 0);
   const { totalMarginCross, totalMarginIsolated, totalFee, totalUnrealizedPnl, dex, availableMargin } = accountInfo();
 
   useEffect(() => {
@@ -204,7 +223,8 @@ export default function ContractFormulaCalculator() {
    <div className="col-span-3 grid grid-cols-3 gap-4">
     <div className="col-span-1 bg-white p-4 border rounded mb-4">
       <h3 className="text-lg font-bold mb-2">账户信息</h3>
-      <div className="grid grid-cols-1 gap-2 text-sm">
+      <div className=\"grid grid-cols-1 gap-2 text-sm\">
+        <div className=\"cursor-pointer\" onClick={() => setLogs(prev => [...prev, `已实现盈亏 = ${totalRealizedPnl.toFixed(2)}`])}>已实现盈亏：{totalRealizedPnl.toFixed(2)}</div>
         <div className="cursor-pointer" onClick={() => setLogs(prev => [...prev, `当前余额 = 初始余额 = ${initialBalance.toFixed(2)}`])}>当前余额：{initialBalance.toFixed(2)}</div>
         <div className="cursor-pointer" onClick={() => setLogs(prev => [...prev, `逐仓保证金 = ${totalMarginIsolated.toFixed(2)}`])}>逐仓保证金占用：{totalMarginIsolated.toFixed(2)}</div>
         <div className="cursor-pointer" onClick={() => setLogs(prev => [...prev, `全仓保证金 = ${totalMarginCross.toFixed(2)}`])}>全仓保证金占用：{totalMarginCross.toFixed(2)}</div>
@@ -231,7 +251,9 @@ export default function ContractFormulaCalculator() {
             <th className="p-2 border">张数</th>
             <th className="p-2 border">维持保证金</th>
             <th className="p-2 border">强平价</th>
-            <th className="p-2 border">操作</th>
+            <th className=\"p-2 border\">平仓价</th>
+            <th className=\"p-2 border\">已实现盈亏</th>
+            <th className=\"p-2 border\">操作</th>
           </tr>
         </thead>
         <tbody>
@@ -271,7 +293,9 @@ export default function ContractFormulaCalculator() {
                   setLogs(prev => [...prev, log]);
                 }}>{liquidationPrice}</td>
                 <td className="p-2 border text-blue-500 text-center cursor-pointer" onClick={() => logCalculation('pnl', pos)}>{pos.pnl}</td>
-                <td className="p-2 border text-center">{pos.quantity}</td>
+                <td className=\"p-2 border text-center\">{pos.quantity}</td>
+                <td className=\"p-2 border text-center\">{pos.closePrice ?? '-'}</td>
+                <td className=\"p-2 border text-center\">{pos.realizedPnl ?? '-'}</td>
                 <td className="p-2 border text-center text-blue-500 cursor-pointer" onClick={() => setLogs(prev => [...prev, `维持保证金 = ${pos.quantity} * ${pos.entryPrice} * ${contractValue} * ${maintenanceMarginRate} = ${maintenanceMargin.toFixed(4)}`])}>{maintenanceMargin.toFixed(4)}</td>
                 <td className="p-2 border text-center text-blue-500 cursor-pointer" onClick={() => setLogs(prev => [...prev, `强平价 = ${forcedPrice}`])}>{forcedPrice}</td>
                 <td className="p-2 border text-center">
