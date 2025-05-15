@@ -59,6 +59,9 @@ export default function ContractFormulaCalculator() {
     recalculateAllPositions();
   }, [currentPrice, maintenanceMarginRate]);
 
+  const translateDirection = (dir) => dir === 'long' ? '多单' : '空单';
+  const translateMarginType = (type) => type === 'cross' ? '全仓' : '逐仓';
+
   return (
     <div className="grid grid-cols-3 gap-4 p-6">
       {/* 顶部基础参数区 */}
@@ -136,8 +139,8 @@ export default function ContractFormulaCalculator() {
             {positions.map((pos, idx) => (
               <tr key={idx}>
                 <td className="p-2 border text-center">{pos.symbol}</td>
-                <td className="p-2 border text-center">{pos.direction}</td>
-                <td className="p-2 border text-center">{pos.marginType}</td>
+                <td className="p-2 border text-center">{translateDirection(pos.direction)}</td>
+                <td className="p-2 border text-center">{translateMarginType(pos.marginType)}</td>
                 <td className="p-2 border text-center">{pos.leverage}</td>
                 <td className="p-2 border text-center">{pos.entryPrice}</td>
                 <td className="p-2 border text-center">{pos.currentPrice}</td>
