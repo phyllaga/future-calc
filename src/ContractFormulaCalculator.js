@@ -198,7 +198,7 @@ export default function ContractFormulaCalculator() {
 
   {/* 原有内容 */}
   <div className="col-span-3 grid grid-cols-3 gap-4">
-    <div className="col-span-1 bg-white p-4 border rounded mb-4">
+     <div className="col-span-1 bg-white p-4 border rounded mb-4">
       <h3 className="text-lg font-bold mb-2">账户信息</h3>
       <div className="grid grid-cols-1 gap-2 text-sm">
         <div className="cursor-pointer" onClick={() => setLogs(prev => [...prev, `当前余额 = 初始余额 = ${initialBalance.toFixed(2)}`])}>当前余额：{initialBalance.toFixed(2)}</div>
@@ -230,29 +230,40 @@ export default function ContractFormulaCalculator() {
           </tr>
         </thead>
         <tbody>
-          {positions.map((pos, idx) => (
-            <tr key={idx}>
-              <td className="p-2 border text-center">{pos.symbol}</td>
-              <td className="p-2 border text-center">{translateDirection(pos.direction)}</td>
-              <td className="p-2 border text-center">{translateMarginType(pos.marginType)}</td>
-              <td className="p-2 border text-center">{pos.leverage}</td>
-              <td className="p-2 border text-center">{pos.entryPrice}</td>
-              <td className="p-2 border text-center">{pos.currentPrice}</td>
-              <td className="p-2 border text-blue-500 text-center cursor-pointer" onClick={() => logCalculation('liq', pos)}>{pos.liquidationPrice}</td>
-              <td className="p-2 border text-blue-500 text-center cursor-pointer" onClick={() => logCalculation('pnl', pos)}>{pos.pnl}</td>
-              <td className="p-2 border text-center">{pos.quantity}</td>
-              <td className="p-2 border text-center">
-                {pos.closed ? (
-                  <span className="text-gray-400">已平仓</span>
-                ) : (
-                  <div className="flex flex-col items-center gap-1">
-                    <button onClick={() => closePosition(idx)} className="bg-red-500 text-white px-2 py-1 rounded">平仓</button>
-                    <button onClick={() => deletePosition(idx)} className="bg-gray-500 text-white px-2 py-1 rounded">删除</button>
-                  </div>
-                )}
-              </td>
-            </tr>
-          ))}
+          {positions.map((pos, idx) => {
+            const positionValue = pos.entryPrice * pos.quantity * contractValue;
+            const liquidationPrice = pos.direction === 'long'
+              ? ((positionValue - availableMargin) / (pos.quantity * contractValue)).toFixed(2)
+              : ((positionValue + availableMargin) / (pos.quantity * contractValue)).toFixed(2);
+            return (
+              <tr key={idx}>
+                <td className="p-2 border text-center">{pos.symbol}</td>
+                <td className="p-2 border text-center">{translateDirection(pos.direction)}</td>
+                <td className="p-2 border text-center">{translateMarginType(pos.marginType)}</td>
+                <td className="p-2 border text-center">{pos.leverage}</td>
+                <td className="p-2 border text-center">{pos.entryPrice}</td>
+                <td className="p-2 border text-center">{pos.currentPrice}</td>
+                <td
+                  className="p-2 border text-blue-500 text-center cursor-pointer"
+                  onClick={() => setLogs(prev => [...prev, `爆仓价（${translateDirection(pos.direction)}） = (${positionValue.toFixed(2)} ${pos.direction === 'long' ? '-' : '+'} ${availableMargin.toFixed(2)}) / (${pos.quantity} * ${contractValue}) = ${liquidationPrice}`])}
+                >
+                  {liquidationPrice}
+                </td>
+                <td className="p-2 border text-blue-500 text-center cursor-pointer" onClick={() => logCalculation('pnl', pos)}>{pos.pnl}</td>
+                <td className="p-2 border text-center">{pos.quantity}</td>
+                <td className="p-2 border text-center">
+                  {pos.closed ? (
+                    <span className="text-gray-400">已平仓</span>
+                  ) : (
+                    <div className="flex flex-col items-center gap-1">
+                      <button onClick={() => closePosition(idx)} className="bg-red-500 text-white px-2 py-1 rounded">平仓</button>
+                      <button onClick={() => deletePosition(idx)} className="bg-gray-500 text-white px-2 py-1 rounded">删除</button>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
