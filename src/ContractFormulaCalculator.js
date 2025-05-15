@@ -144,7 +144,7 @@ export default function ContractFormulaCalculator() {
       </div>
       <div>
         <label className="block mb-1">合约面值</label>
-        <input type="number" value={contractValue} onChange={e => setContractValue(parseFloat(e.target.value))} className="w-full p-2 border rounded" />
+        <input type="number" value={contractValue} onChange={e => setContractValue(parseFloat(e.target.value))} className="w-full p-2 border rounded" placeholder="0.0001" />
       </div>
       <div>
         <label className="block mb-1">初始余额</label>
@@ -201,15 +201,16 @@ export default function ContractFormulaCalculator() {
     <div className="col-span-1 bg-white p-4 border rounded mb-4">
       <h3 className="text-lg font-bold mb-2">账户信息</h3>
       <div className="grid grid-cols-1 gap-2 text-sm">
-        <div>当前余额：{initialBalance.toFixed(2)}</div>
-        <div>逐仓保证金占用：{totalMarginIsolated.toFixed(2)}</div>
-        <div>全仓保证金占用：{totalMarginCross.toFixed(2)}</div>
-        <div>手续费总和：{totalFee.toFixed(2)}</div>
-        <div>未实现盈亏总和：{totalUnrealizedPnl.toFixed(2)}</div>
-        <div>当前账户 DEX：{dex.toFixed(2)}</div>
-        <div>当前可开保证金：{availableMargin.toFixed(2)}</div>
+        <div className="cursor-pointer" onClick={() => setLogs(prev => [...prev, `当前余额 = 初始余额 = ${initialBalance.toFixed(2)}`])}>当前余额：{initialBalance.toFixed(2)}</div>
+        <div className="cursor-pointer" onClick={() => setLogs(prev => [...prev, `逐仓保证金 = ${totalMarginIsolated.toFixed(2)}`])}>逐仓保证金占用：{totalMarginIsolated.toFixed(2)}</div>
+        <div className="cursor-pointer" onClick={() => setLogs(prev => [...prev, `全仓保证金 = ${totalMarginCross.toFixed(2)}`])}>全仓保证金占用：{totalMarginCross.toFixed(2)}</div>
+        <div className="cursor-pointer" onClick={() => setLogs(prev => [...prev, `手续费总和 = ${totalFee.toFixed(2)}`])}>手续费总和：{totalFee.toFixed(2)}</div>
+        <div className="cursor-pointer" onClick={() => setLogs(prev => [...prev, `未实现盈亏 = ${totalUnrealizedPnl.toFixed(2)}`])}>未实现盈亏总和：{totalUnrealizedPnl.toFixed(2)}</div>
+        <div className="cursor-pointer" onClick={() => setLogs(prev => [...prev, `DEX = 初始余额(${initialBalance}) - 手续费(${totalFee.toFixed(2)}) - 保证金(${(totalMarginCross + totalMarginIsolated).toFixed(2)}) = ${dex.toFixed(2)}`])}>当前账户 DEX：{dex.toFixed(2)}</div>
+        <div className="cursor-pointer" onClick={() => setLogs(prev => [...prev, `可开保证金 = DEX = ${availableMargin.toFixed(2)}`])}>当前可开保证金：{availableMargin.toFixed(2)}</div>
       </div>
     </div>
+
 
     <div className="col-span-2 bg-white p-4 border rounded">
       <h3 className="text-lg font-bold mb-4">持仓列表</h3>
