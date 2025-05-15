@@ -110,4 +110,73 @@ export default function ContractFormulaCalculator() {
 
       {/* 左侧参数设置区 */}
       <div className="bg-white p-4 border rounded">
-        <h3 className
+        <h3 className="text-lg font-bold mb-2">参数设置</h3>
+        <label className="block mb-1">开仓价格</label>
+        <input type="number" value={entryPrice} onChange={e => setEntryPrice(e.target.value)} className="w-full p-2 border rounded mb-2" />
+
+        <label className="block mb-1">张数</label>
+        <input type="number" value={quantity} onChange={e => setQuantity(e.target.value)} className="w-full p-2 border rounded mb-2" />
+
+        <label className="block mb-1">杠杆倍数</label>
+        <input type="number" value={leverage} onChange={e => setLeverage(parseFloat(e.target.value))} className="w-full p-2 border rounded mb-2" />
+
+        <label className="block mb-1">方向</label>
+        <select value={direction} onChange={e => setDirection(e.target.value)} className="w-full p-2 border rounded mb-2">
+          <option value="long">多单</option>
+          <option value="short">空单</option>
+        </select>
+
+        <label className="block mb-1">仓位类型</label>
+        <select value={marginType} onChange={e => setMarginType(e.target.value)} className="w-full p-2 border rounded mb-2">
+          <option value="cross">全仓</option>
+          <option value="isolated">逐仓</option>
+        </select>
+
+        <button onClick={createPosition} className="bg-blue-600 text-white px-4 py-2 rounded mt-2">创建持仓</button>
+      </div>
+
+      {/* 右侧持仓展示区 */}
+      <div className="col-span-2 bg-white p-4 border rounded">
+        <h3 className="text-lg font-bold mb-4">持仓列表</h3>
+        <table className="w-full text-sm border">
+          <thead className="bg-gray-200">
+            <tr>
+              <th className="p-2 border">交易对</th>
+              <th className="p-2 border">方向</th>
+              <th className="p-2 border">类型</th>
+              <th className="p-2 border">杠杆</th>
+              <th className="p-2 border">开仓价</th>
+              <th className="p-2 border">当前价</th>
+              <th className="p-2 border">爆仓价</th>
+              <th className="p-2 border">盈亏</th>
+              <th className="p-2 border">张数</th>
+              <th className="p-2 border">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {positions.map((pos, idx) => (
+              <tr key={idx}>
+                <td className="p-2 border text-center">{pos.symbol}</td>
+                <td className="p-2 border text-center">{translateDirection(pos.direction)}</td>
+                <td className="p-2 border text-center">{translateMarginType(pos.marginType)}</td>
+                <td className="p-2 border text-center">{pos.leverage}</td>
+                <td className="p-2 border text-center">{pos.entryPrice}</td>
+                <td className="p-2 border text-center">{pos.currentPrice}</td>
+                <td className="p-2 border text-center">{pos.liquidationPrice}</td>
+                <td className="p-2 border text-center">{pos.pnl}</td>
+                <td className="p-2 border text-center">{pos.quantity}</td>
+                <td className="p-2 border text-center">
+                  {pos.closed ? (
+                    <span className="text-gray-400">已平仓</span>
+                  ) : (
+                    <button onClick={() => closePosition(idx)} className="bg-red-500 text-white px-2 py-1 rounded">平仓</button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
