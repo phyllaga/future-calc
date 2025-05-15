@@ -1,6 +1,4 @@
-（保留顶部设置区和创建持仓区）
 
-  {/* 原有内容 */}
  import React, { useState, useEffect } from 'react';
 
 export default function ContractFormulaCalculator() {
