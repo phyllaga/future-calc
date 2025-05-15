@@ -6,6 +6,8 @@ export default function ContractFormulaCalculator() {
   const [maintenanceMarginRate, setMaintenanceMarginRate] = useState(0.005);
   const [contractValue, setContractValue] = useState(1);
   const [balance, setBalance] = useState(1000);
+  const [openFeeRate, setOpenFeeRate] = useState(0.0003);
+  const [closeFeeRate, setCloseFeeRate] = useState(0.0005);
 
   const [entryPrice, setEntryPrice] = useState('');
   const [quantity, setQuantity] = useState('');
@@ -26,6 +28,7 @@ export default function ContractFormulaCalculator() {
       currentPrice,
       leverage,
       marginType,
+      closed: false,
       liquidationPrice: calculateLiquidationPrice(ep, qty, direction, leverage),
       pnl: calculatePnL(ep, currentPrice, qty, direction),
     };
@@ -55,6 +58,12 @@ export default function ContractFormulaCalculator() {
     })));
   };
 
+  const closePosition = (index) => {
+    const updated = [...positions];
+    updated[index].closed = true;
+    setPositions(updated);
+  };
+
   useEffect(() => {
     recalculateAllPositions();
   }, [currentPrice, maintenanceMarginRate]);
@@ -66,7 +75,7 @@ export default function ContractFormulaCalculator() {
     <div className="grid grid-cols-3 gap-4 p-6">
       {/* 顶部基础参数区 */}
       <div className="col-span-3 bg-gray-100 p-4 rounded mb-4">
-        <div className="grid grid-cols-6 gap-4 items-end">
+        <div className="grid grid-cols-8 gap-4 items-end">
           <div>
             <label className="block mb-1">交易对</label>
             <input value={symbol} onChange={e => setSymbol(e.target.value)} className="w-full p-2 border rounded" />
@@ -87,71 +96,18 @@ export default function ContractFormulaCalculator() {
             <label className="block mb-1">账户余额</label>
             <input type="number" value={balance} onChange={e => setBalance(parseFloat(e.target.value))} className="w-full p-2 border rounded" />
           </div>
+          <div>
+            <label className="block mb-1">开仓费率</label>
+            <input type="number" value={openFeeRate} onChange={e => setOpenFeeRate(parseFloat(e.target.value))} className="w-full p-2 border rounded" />
+          </div>
+          <div>
+            <label className="block mb-1">平仓费率</label>
+            <input type="number" value={closeFeeRate} onChange={e => setCloseFeeRate(parseFloat(e.target.value))} className="w-full p-2 border rounded" />
+          </div>
           <button onClick={recalculateAllPositions} className="bg-blue-500 text-white px-4 py-2 rounded">重新计算</button>
         </div>
       </div>
 
       {/* 左侧参数设置区 */}
       <div className="bg-white p-4 border rounded">
-        <h3 className="text-lg font-bold mb-2">参数设置</h3>
-        <label className="block mb-1">开仓价格</label>
-        <input type="number" value={entryPrice} onChange={e => setEntryPrice(e.target.value)} className="w-full p-2 border rounded mb-2" />
-
-        <label className="block mb-1">张数</label>
-        <input type="number" value={quantity} onChange={e => setQuantity(e.target.value)} className="w-full p-2 border rounded mb-2" />
-
-        <label className="block mb-1">杠杆倍数</label>
-        <input type="number" value={leverage} onChange={e => setLeverage(parseFloat(e.target.value))} className="w-full p-2 border rounded mb-2" />
-
-        <label className="block mb-1">方向</label>
-        <select value={direction} onChange={e => setDirection(e.target.value)} className="w-full p-2 border rounded mb-2">
-          <option value="long">多单</option>
-          <option value="short">空单</option>
-        </select>
-
-        <label className="block mb-1">仓位类型</label>
-        <select value={marginType} onChange={e => setMarginType(e.target.value)} className="w-full p-2 border rounded mb-2">
-          <option value="cross">全仓</option>
-          <option value="isolated">逐仓</option>
-        </select>
-
-        <button onClick={createPosition} className="bg-blue-600 text-white px-4 py-2 rounded mt-2">创建持仓</button>
-      </div>
-
-      {/* 右侧持仓展示区 */}
-      <div className="col-span-2 bg-white p-4 border rounded">
-        <h3 className="text-lg font-bold mb-4">持仓列表</h3>
-        <table className="w-full text-sm border">
-          <thead className="bg-gray-200">
-            <tr>
-              <th className="p-2 border">交易对</th>
-              <th className="p-2 border">方向</th>
-              <th className="p-2 border">类型</th>
-              <th className="p-2 border">杠杆</th>
-              <th className="p-2 border">开仓价</th>
-              <th className="p-2 border">当前价</th>
-              <th className="p-2 border">爆仓价</th>
-              <th className="p-2 border">盈亏</th>
-              <th className="p-2 border">张数</th>
-            </tr>
-          </thead>
-          <tbody>
-            {positions.map((pos, idx) => (
-              <tr key={idx}>
-                <td className="p-2 border text-center">{pos.symbol}</td>
-                <td className="p-2 border text-center">{translateDirection(pos.direction)}</td>
-                <td className="p-2 border text-center">{translateMarginType(pos.marginType)}</td>
-                <td className="p-2 border text-center">{pos.leverage}</td>
-                <td className="p-2 border text-center">{pos.entryPrice}</td>
-                <td className="p-2 border text-center">{pos.currentPrice}</td>
-                <td className="p-2 border text-center">{pos.liquidationPrice}</td>
-                <td className="p-2 border text-center">{pos.pnl}</td>
-                <td className="p-2 border text-center">{pos.quantity}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
+        <h3 className
