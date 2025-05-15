@@ -127,79 +127,144 @@ export default function ContractFormulaCalculator() {
 
   return (
     <>
-      {/* 可选：顶部参数输入区 + 仓位创建区（已在上文定义） */}
-
-      {/* 账户信息与持仓列表并排显示 */}
-      <div className="col-span-3 grid grid-cols-3 gap-4">
-        {/* 账户信息展示区 */}
-        <div className="col-span-1 bg-white p-4 border rounded mb-4">
-          <h3 className="text-lg font-bold mb-2">账户信息</h3>
-          <div className="grid grid-cols-1 gap-2 text-sm">
-            <div>当前余额：{initialBalance.toFixed(2)}</div>
-            <div>逐仓保证金占用：{totalMarginIsolated.toFixed(2)}</div>
-            <div>全仓保证金占用：{totalMarginCross.toFixed(2)}</div>
-            <div>手续费总和：{totalFee.toFixed(2)}</div>
-            <div>未实现盈亏总和：{totalUnrealizedPnl.toFixed(2)}</div>
-            <div>当前账户 DEX：{dex.toFixed(2)}</div>
-            <div>当前可开保证金：{availableMargin.toFixed(2)}</div>
-          </div>
-        </div>
-
-        {/* 持仓列表展示区 */}
-        <div className="col-span-2 bg-white p-4 border rounded">
-          <h3 className="text-lg font-bold mb-4">持仓列表</h3>
-          <table className="w-full text-sm border">
-            <thead className="bg-gray-200">
-              <tr>
-                <th className="p-2 border">交易对</th>
-                <th className="p-2 border">方向</th>
-                <th className="p-2 border">类型</th>
-                <th className="p-2 border">杠杆</th>
-                <th className="p-2 border">开仓价</th>
-                <th className="p-2 border">当前价</th>
-                <th className="p-2 border">爆仓价</th>
-                <th className="p-2 border">盈亏</th>
-                <th className="p-2 border">张数</th>
-                <th className="p-2 border">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {positions.map((pos, idx) => (
-                <tr key={idx}>
-                  <td className="p-2 border text-center">{pos.symbol}</td>
-                  <td className="p-2 border text-center">{translateDirection(pos.direction)}</td>
-                  <td className="p-2 border text-center">{translateMarginType(pos.marginType)}</td>
-                  <td className="p-2 border text-center">{pos.leverage}</td>
-                  <td className="p-2 border text-center">{pos.entryPrice}</td>
-                  <td className="p-2 border text-center">{pos.currentPrice}</td>
-                  <td className="p-2 border text-blue-500 text-center cursor-pointer" onClick={() => logCalculation('liq', pos)}>{pos.liquidationPrice}</td>
-                  <td className="p-2 border text-blue-500 text-center cursor-pointer" onClick={() => logCalculation('pnl', pos)}>{pos.pnl}</td>
-                  <td className="p-2 border text-center">{pos.quantity}</td>
-                  <td className="p-2 border text-center">
-                    {pos.closed ? (
-                      <span className="text-gray-400">已平仓</span>
-                    ) : (
-                      <div className="flex flex-col items-center gap-1">
-                        <button onClick={() => closePosition(idx)} className="bg-red-500 text-white px-2 py-1 rounded">平仓</button>
-                        <button onClick={() => deletePosition(idx)} className="bg-gray-500 text-white px-2 py-1 rounded">删除</button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+  {/* 顶部基础参数设置区 */}
+  <div className="col-span-3 bg-gray-100 p-4 rounded mb-4">
+    <div className="grid grid-cols-6 gap-4">
+      <div>
+        <label className="block mb-1">交易对</label>
+        <input value={symbol} onChange={e => setSymbol(e.target.value)} className="w-full p-2 border rounded" />
       </div>
-
-      {/* 日志控制台 */}
-      <div className="col-span-3 mt-4 bg-black text-green-400 p-4 rounded font-mono text-sm">
-        <div className="flex justify-between items-center mb-2">
-          <strong>计算日志:</strong>
-          <button onClick={clearLogs} className="bg-gray-700 text-white px-2 py-1 rounded">清空日志</button>
-        </div>
-        <pre>{logs.map((line, i) => <div key={i}>{line}</div>)}</pre>
+      <div>
+        <label className="block mb-1">当前价格</label>
+        <input type="number" value={currentPrice} onChange={e => setCurrentPrice(parseFloat(e.target.value))} className="w-full p-2 border rounded" />
       </div>
-    </>
+      <div>
+        <label className="block mb-1">维持保证金率</label>
+        <input type="number" value={maintenanceMarginRate} onChange={e => setMaintenanceMarginRate(parseFloat(e.target.value))} className="w-full p-2 border rounded" />
+      </div>
+      <div>
+        <label className="block mb-1">合约面值</label>
+        <input type="number" value={contractValue} onChange={e => setContractValue(parseFloat(e.target.value))} className="w-full p-2 border rounded" />
+      </div>
+      <div>
+        <label className="block mb-1">初始余额</label>
+        <input type="number" value={initialBalance} onChange={e => setInitialBalance(parseFloat(e.target.value))} className="w-full p-2 border rounded" />
+      </div>
+      <div>
+        <label className="block mb-1">手续费率</label>
+        <input type="number" value={feeRate} onChange={e => setFeeRate(parseFloat(e.target.value))} className="w-full p-2 border rounded" />
+      </div>
+    </div>
+    <div className="mt-4">
+      <button onClick={recalculateAllPositions} className="bg-blue-500 text-white px-4 py-2 rounded">重新计算</button>
+    </div>
+  </div>
+
+  {/* 仓位创建区 */}
+  <div className="col-span-3 bg-white p-4 border rounded mb-4">
+    <h3 className="text-lg font-bold mb-2">新增仓位</h3>
+    <div className="grid grid-cols-6 gap-4">
+      <div>
+        <label className="block mb-1">开仓价格</label>
+        <input type="number" value={entryPrice} onChange={e => setEntryPrice(e.target.value)} className="w-full p-2 border rounded" />
+      </div>
+      <div>
+        <label className="block mb-1">张数</label>
+        <input type="number" value={quantity} onChange={e => setQuantity(e.target.value)} className="w-full p-2 border rounded" />
+      </div>
+      <div>
+        <label className="block mb-1">杠杆倍数</label>
+        <input type="number" value={leverage} onChange={e => setLeverage(parseFloat(e.target.value))} className="w-full p-2 border rounded" />
+      </div>
+      <div>
+        <label className="block mb-1">方向</label>
+        <select value={direction} onChange={e => setDirection(e.target.value)} className="w-full p-2 border rounded">
+          <option value="long">多单</option>
+          <option value="short">空单</option>
+        </select>
+      </div>
+      <div>
+        <label className="block mb-1">仓位类型</label>
+        <select value={marginType} onChange={e => setMarginType(e.target.value)} className="w-full p-2 border rounded">
+          <option value="cross">全仓</option>
+          <option value="isolated">逐仓</option>
+        </select>
+      </div>
+      <div className="flex items-end">
+        <button onClick={createPosition} className="bg-green-600 text-white px-4 py-2 rounded w-full">创建持仓</button>
+      </div>
+    </div>
+  </div>
+
+  {/* 原有内容 */}
+  <div className="col-span-3 grid grid-cols-3 gap-4">
+    <div className="col-span-1 bg-white p-4 border rounded mb-4">
+      <h3 className="text-lg font-bold mb-2">账户信息</h3>
+      <div className="grid grid-cols-1 gap-2 text-sm">
+        <div>当前余额：{initialBalance.toFixed(2)}</div>
+        <div>逐仓保证金占用：{totalMarginIsolated.toFixed(2)}</div>
+        <div>全仓保证金占用：{totalMarginCross.toFixed(2)}</div>
+        <div>手续费总和：{totalFee.toFixed(2)}</div>
+        <div>未实现盈亏总和：{totalUnrealizedPnl.toFixed(2)}</div>
+        <div>当前账户 DEX：{dex.toFixed(2)}</div>
+        <div>当前可开保证金：{availableMargin.toFixed(2)}</div>
+      </div>
+    </div>
+
+    <div className="col-span-2 bg-white p-4 border rounded">
+      <h3 className="text-lg font-bold mb-4">持仓列表</h3>
+      <table className="w-full text-sm border">
+        <thead className="bg-gray-200">
+          <tr>
+            <th className="p-2 border">交易对</th>
+            <th className="p-2 border">方向</th>
+            <th className="p-2 border">类型</th>
+            <th className="p-2 border">杠杆</th>
+            <th className="p-2 border">开仓价</th>
+            <th className="p-2 border">当前价</th>
+            <th className="p-2 border">爆仓价</th>
+            <th className="p-2 border">盈亏</th>
+            <th className="p-2 border">张数</th>
+            <th className="p-2 border">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {positions.map((pos, idx) => (
+            <tr key={idx}>
+              <td className="p-2 border text-center">{pos.symbol}</td>
+              <td className="p-2 border text-center">{translateDirection(pos.direction)}</td>
+              <td className="p-2 border text-center">{translateMarginType(pos.marginType)}</td>
+              <td className="p-2 border text-center">{pos.leverage}</td>
+              <td className="p-2 border text-center">{pos.entryPrice}</td>
+              <td className="p-2 border text-center">{pos.currentPrice}</td>
+              <td className="p-2 border text-blue-500 text-center cursor-pointer" onClick={() => logCalculation('liq', pos)}>{pos.liquidationPrice}</td>
+              <td className="p-2 border text-blue-500 text-center cursor-pointer" onClick={() => logCalculation('pnl', pos)}>{pos.pnl}</td>
+              <td className="p-2 border text-center">{pos.quantity}</td>
+              <td className="p-2 border text-center">
+                {pos.closed ? (
+                  <span className="text-gray-400">已平仓</span>
+                ) : (
+                  <div className="flex flex-col items-center gap-1">
+                    <button onClick={() => closePosition(idx)} className="bg-red-500 text-white px-2 py-1 rounded">平仓</button>
+                    <button onClick={() => deletePosition(idx)} className="bg-gray-500 text-white px-2 py-1 rounded">删除</button>
+                  </div>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {/* 日志控制台 */}
+  <div className="col-span-3 mt-4 bg-black text-green-400 p-4 rounded font-mono text-sm">
+    <div className="flex justify-between items-center mb-2">
+      <strong>计算日志:</strong>
+      <button onClick={clearLogs} className="bg-gray-700 text-white px-2 py-1 rounded">清空日志</button>
+    </div>
+    <pre>{logs.map((line, i) => <div key={i}>{line}</div>)}</pre>
+  </div>
+</>
   );
 }
