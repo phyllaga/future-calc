@@ -97,7 +97,8 @@ export default function ContractFormulaCalculator() {
       maintenanceMargin: maintenanceMargin.toFixed(2),
       dex: dex.toFixed(2),
       liquidationPrice,
-      pnl,
+      unrealizedPnl: pnl,         // 未实现盈亏
+      realizedPnl: null,          // 已实现盈亏，初始为null
       createdAt: new Date().toISOString(),
     };
     
@@ -125,6 +126,11 @@ export default function ContractFormulaCalculator() {
     addToLog(`--- 重新计算所有仓位 ---`);
     
     setPositions(positions.map(pos => {
+      // 如果已平仓，不重新计算盈亏，保持原值
+      if (pos.closed) {
+        return pos;
+      }
+      
       addToLog(`重新计算仓位: ${pos.symbol} ${translateDirection(pos.direction)} ${pos.quantity}张 @${pos.entryPrice}`);
       
       const positionValue = pos.quantity * contractValue * pos.entryPrice;
@@ -164,8 +170,8 @@ export default function ContractFormulaCalculator() {
       
       liquidationPrice = liquidationPrice.toFixed(4);
       
-      const pnl = calculatePnL(pos.entryPrice, currentPrice, pos.quantity, pos.direction);
-      addToLog(`盈亏 = ${pos.direction === 'long' ? `(${currentPrice} - ${pos.entryPrice})` : `(${pos.entryPrice} - ${currentPrice})`} × ${pos.quantity} × ${contractValue} = ${pnl}`);
+      const unrealizedPnl = calculatePnL(pos.entryPrice, currentPrice, pos.quantity, pos.direction);
+      addToLog(`未实现盈亏 = ${pos.direction === 'long' ? `(${currentPrice} - ${pos.entryPrice})` : `(${pos.entryPrice} - ${currentPrice})`} × ${pos.quantity} × ${contractValue} = ${unrealizedPnl}`);
       
       return {
         ...pos,
@@ -176,7 +182,7 @@ export default function ContractFormulaCalculator() {
         maintenanceMargin: maintenanceMargin.toFixed(2),
         dex: dex.toFixed(2),
         liquidationPrice,
-        pnl,
+        unrealizedPnl,
       };
     }));
   };
@@ -215,7 +221,8 @@ export default function ContractFormulaCalculator() {
     // 更新仓位状态
     pos.closed = true;
     pos.closePrice = closePrice;
-    pos.realizedPnl = pnl.toFixed(2);
+    pos.realizedPnl = pnl.toFixed(2);  // 设置已实现盈亏
+    pos.unrealizedPnl = "0.00";        // 平仓后未实现盈亏为0
     pos.closeFee = closingFee.toFixed(4);
     pos.closedAt = new Date().toISOString();
     pos.totalFee = (openFee + closingFee).toFixed(4);
@@ -243,11 +250,24 @@ export default function ContractFormulaCalculator() {
   // 日志计算功能
   const logCalculation = (type, pos) => {
     let message = '';
-    if (type === 'pnl') {
-      const delta = pos.direction === 'long'
-        ? `${pos.currentPrice} - ${pos.entryPrice}`
-        : `${pos.entryPrice} - ${pos.currentPrice}`;
-      message = `盈亏计算: (${delta}) * ${pos.quantity} * ${contractValue} = ${pos.pnl}`;
+    if (type === 'unrealizedPnl') {
+      if (pos.closed) {
+        message = `该仓位已平仓，未实现盈亏为0`;
+      } else {
+        const delta = pos.direction === 'long'
+          ? `${pos.currentPrice} - ${pos.entryPrice}`
+          : `${pos.entryPrice} - ${pos.currentPrice}`;
+        message = `未实现盈亏计算: (${delta}) * ${pos.quantity} * ${contractValue} = ${pos.unrealizedPnl}`;
+      }
+    } else if (type === 'realizedPnl') {
+      if (!pos.closed || pos.realizedPnl === null) {
+        message = `该仓位尚未平仓，暂无已实现盈亏`;
+      } else {
+        const delta = pos.direction === 'long'
+          ? `${pos.closePrice} - ${pos.entryPrice}`
+          : `${pos.entryPrice} - ${pos.closePrice}`;
+        message = `已实现盈亏计算: (${delta}) * ${pos.quantity} * ${contractValue} = ${pos.realizedPnl}`;
+      }
     } else if (type === 'liq') {
       message = `爆仓价计算: ${
         pos.direction === 'long'
@@ -283,7 +303,7 @@ export default function ContractFormulaCalculator() {
     const totalOpenFee = positions.filter(p => !p.closed).reduce((sum, p) => sum + parseFloat(p.openFee), 0);
     const totalCloseFee = positions.filter(p => p.closed && p.closeFee).reduce((sum, p) => sum + parseFloat(p.closeFee), 0);
     const totalFee = totalOpenFee + totalCloseFee;
-    const totalUnrealizedPnl = positions.filter(p => !p.closed).reduce((sum, p) => sum + parseFloat(p.pnl), 0);
+    const totalUnrealizedPnl = positions.filter(p => !p.closed).reduce((sum, p) => sum + parseFloat(p.unrealizedPnl), 0);
     const totalRealizedPnl = positions.filter(p => p.closed && p.realizedPnl).reduce((sum, p) => sum + parseFloat(p.realizedPnl), 0);
     
     // 可用资金 = 当前余额 - 保证金占用
@@ -317,7 +337,7 @@ export default function ContractFormulaCalculator() {
   // 添加账户指标计算逻辑日志函数
   const logAccountMetrics = () => {
     addToLog(`--- 账户指标计算 ---`);
-    addToLog(`当前日期时间: 2025-05-15 10:26:17 (UTC)`);
+    addToLog(`当前日期时间: 2025-05-15 10:38:06 (UTC)`);
     addToLog(`用户: phyllaga`);
     
     const activePositions = positions.filter(p => !p.closed);
@@ -343,7 +363,7 @@ export default function ContractFormulaCalculator() {
     
     if (activePositions.length > 0) {
       addToLog(`开仓手续费总和计算: ${activePositions.map(p => parseFloat(p.openFee)).join(' + ')} = ${totalOpenFee.toFixed(4)}`);
-      addToLog(`未实现盈亏总和计算: ${activePositions.map(p => parseFloat(p.pnl)).join(' + ')} = ${totalUnrealizedPnl.toFixed(2)}`);
+      addToLog(`未实现盈亏总和计算: ${activePositions.map(p => parseFloat(p.unrealizedPnl)).join(' + ')} = ${totalUnrealizedPnl.toFixed(2)}`);
     } else {
       addToLog(`开仓手续费总和: 0`);
       addToLog(`未实现盈亏总和: 0`);
@@ -413,7 +433,7 @@ export default function ContractFormulaCalculator() {
               value={contractValue} 
               onChange={e => setContractValue(parseFloat(e.target.value))} 
               className="w-full p-2 border rounded" 
-              placeholder="1"
+              placeholder="0.0001"
               onClick={() => addToLog(`合约面值设置为 ${contractValue}`)}
             />
           </div>
@@ -553,10 +573,10 @@ export default function ContractFormulaCalculator() {
             <div className="cursor-pointer" onClick={() => addToLog(`手续费总和 = ${totalFee.toFixed(4)}`)}>
               手续费总和：<span className="text-blue-500 hover:underline">{totalFee.toFixed(4)}</span>
             </div>
-            <div className="cursor-pointer" onClick={() => addToLog(`未实现盈亏 = ${totalUnrealizedPnl.toFixed(2)}`)}>
+            <div className="cursor-pointer" onClick={() => addToLog(`未实现盈亏总和 = ${totalUnrealizedPnl.toFixed(2)}`)}>
               未实现盈亏总和：<span className="text-blue-500 hover:underline">{totalUnrealizedPnl.toFixed(2)}</span>
             </div>
-            <div className="cursor-pointer" onClick={() => addToLog(`已实现盈亏 = ${totalRealizedPnl.toFixed(2)}`)}>
+            <div className="cursor-pointer" onClick={() => addToLog(`已实现盈亏总和 = ${totalRealizedPnl.toFixed(2)}`)}>
               已实现盈亏总和：<span className="text-blue-500 hover:underline">{totalRealizedPnl.toFixed(2)}</span>
             </div>
             <button onClick={logAccountMetrics} className="mt-2 bg-blue-500 text-white px-2 py-1 rounded text-xs">
@@ -577,7 +597,8 @@ export default function ContractFormulaCalculator() {
                 <th className="p-2 border">开仓价</th>
                 <th className="p-2 border">当前价</th>
                 <th className="p-2 border">爆仓价</th>
-                <th className="p-2 border">盈亏</th>
+                <th className="p-2 border">未实现盈亏</th>
+                <th className="p-2 border">已实现盈亏</th>
                 <th className="p-2 border">张数</th>
                 <th className="p-2 border">保证金</th>
                 <th className="p-2 border">开仓手续费</th>
@@ -629,8 +650,15 @@ export default function ContractFormulaCalculator() {
                     >
                       {liquidationPrice}
                     </td>
-                    <td className="p-2 border text-blue-500 text-center cursor-pointer hover:underline" onClick={() => logCalculation('pnl', pos)}>
-                      {pos.pnl}
+                    <td className="p-2 border text-blue-500 text-center cursor-pointer hover:underline" onClick={() => logCalculation('unrealizedPnl', pos)}>
+                      {pos.unrealizedPnl}
+                    </td>
+                    <td className="p-2 border text-center">
+                      {pos.realizedPnl ? (
+                        <span className={`text-blue-500 hover:underline cursor-pointer ${parseFloat(pos.realizedPnl) >= 0 ? 'text-green-500' : 'text-red-500'}`} onClick={() => logCalculation('realizedPnl', pos)}>
+                          {parseFloat(pos.realizedPnl) >= 0 ? '+' : ''}{pos.realizedPnl}
+                        </span>
+                      ) : "-"}
                     </td>
                     <td className="p-2 border text-center">{pos.quantity}</td>
                     <td className="p-2 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => logCalculation('margin', pos)}>
@@ -649,7 +677,6 @@ export default function ContractFormulaCalculator() {
                       {pos.closed ? (
                         <span className="text-gray-400">
                           已平仓@{pos.closePrice}
-                          <div className="text-xs text-green-500">{parseFloat(pos.realizedPnl) >= 0 ? '+' : ''}{pos.realizedPnl}</div>
                         </span>
                       ) : (
                         <div className="flex flex-col items-center gap-1">
