@@ -1,23 +1,13 @@
-import logo from './logo.svg';
-import './App.css';
+import React from 'react';
+import ContractFormulaCalculator from './ContractFormulaCalculator';
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
+    <div className="container mx-auto py-8">
+      <header className="text-center mb-8">
+        <h1 className="text-2xl font-bold">加密货币合约交易工具</h1>
       </header>
+      <ContractFormulaCalculator />
     </div>
   );
 }
