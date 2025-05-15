@@ -1,4 +1,7 @@
-import React, { useState, useEffect } from 'react';
+（保留顶部设置区和创建持仓区）
+
+  {/* 原有内容 */}
+ import React, { useState, useEffect } from 'react';
 
 export default function ContractFormulaCalculator() {
   const [symbol, setSymbol] = useState('BTC/USDT');
@@ -25,9 +28,13 @@ export default function ContractFormulaCalculator() {
     const fee = positionValue * feeRate;
     const maintenanceMargin = positionValue * maintenanceMarginRate;
     const dex = initialBalance - maintenanceMargin - fee;
-    const liquidationPrice = direction === 'long'
-      ? ((positionValue - dex) / (qty * contractValue)).toFixed(2)
-      : ((positionValue + dex) / (qty * contractValue)).toFixed(2);
+    const liquidationPrice = marginType === 'isolated'
+      ? (direction === 'long'
+          ? ((maintenanceMargin - (margin - fee) + positionValue) / (qty * contractValue)).toFixed(4)
+          : (((margin - fee) - maintenanceMargin + positionValue) / (qty * contractValue)).toFixed(4))
+      : (direction === 'long'
+          ? ((positionValue - dex) / (qty * contractValue)).toFixed(4)
+          : ((positionValue + dex) / (qty * contractValue)).toFixed(4));
 
     const pos = {
       symbol,
@@ -60,9 +67,13 @@ export default function ContractFormulaCalculator() {
       const fee = positionValue * feeRate;
       const maintenanceMargin = positionValue * maintenanceMarginRate;
       const dex = initialBalance - maintenanceMargin - fee;
-      const liquidationPrice = pos.direction === 'long'
-        ? ((positionValue - dex) / (pos.quantity * contractValue)).toFixed(2)
-        : ((positionValue + dex) / (pos.quantity * contractValue)).toFixed(2);
+      const liquidationPrice = pos.marginType === 'isolated'
+        ? (pos.direction === 'long'
+            ? ((maintenanceMargin - (margin - fee) + positionValue) / (pos.quantity * contractValue)).toFixed(4)
+            : (((margin - fee) - maintenanceMargin + positionValue) / (pos.quantity * contractValue)).toFixed(4))
+        : (pos.direction === 'long'
+            ? ((positionValue - dex) / (pos.quantity * contractValue)).toFixed(4)
+            : ((positionValue + dex) / (pos.quantity * contractValue)).toFixed(4));
 
       return {
         ...pos,
