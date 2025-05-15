@@ -30,13 +30,11 @@ export default function ContractFormulaCalculator() {
     const dex = initialBalance - maintenanceMargin - fee;
     const liquidationPrice = marginType === 'isolated'
       ? (direction === 'long'
-          ? ((maintenanceMargin - (margin - fee) + positionValue) / (qty * contractValue)).toFixed(4)
-          : (((margin - fee) - maintenanceMargin + positionValue) / (qty * contractValue)).toFixed(4))
+          ? ((margin - fee - maintenanceMargin + positionValue) / (qty * contractValue)).toFixed(4)
+          : ((margin - fee + maintenanceMargin + positionValue) / (qty * contractValue)).toFixed(4))
       : (direction === 'long'
           ? ((positionValue - dex) / (qty * contractValue)).toFixed(4)
-          : ((positionValue + dex) / (qty * contractValue)).toFixed(4));
-
-    const pos = {
+          : ((positionValue + dex) / (qty * contractValue)).toFixed(4));const pos = {
       symbol,
       direction,
       entryPrice: ep,
@@ -69,13 +67,11 @@ export default function ContractFormulaCalculator() {
       const dex = initialBalance - maintenanceMargin - fee;
       const liquidationPrice = pos.marginType === 'isolated'
         ? (pos.direction === 'long'
-            ? ((maintenanceMargin - (margin - fee) + positionValue) / (pos.quantity * contractValue)).toFixed(4)
-            : (((margin - fee) - maintenanceMargin + positionValue) / (pos.quantity * contractValue)).toFixed(4))
+            ? ((margin - fee - maintenanceMargin + positionValue) / (pos.quantity * contractValue)).toFixed(4)
+            : ((margin - fee + maintenanceMargin + positionValue) / (pos.quantity * contractValue)).toFixed(4))
         : (pos.direction === 'long'
             ? ((positionValue - dex) / (pos.quantity * contractValue)).toFixed(4)
-            : ((positionValue + dex) / (pos.quantity * contractValue)).toFixed(4));
-
-      return {
+            : ((positionValue + dex) / (pos.quantity * contractValue)).toFixed(4));return {
         ...pos,
         currentPrice,
         margin: margin.toFixed(2),
