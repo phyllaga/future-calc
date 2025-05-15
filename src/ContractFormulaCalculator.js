@@ -4,7 +4,7 @@ export default function ContractFormulaCalculator() {
   const [symbol, setSymbol] = useState('BTC/USDT');
   const [currentPrice, setCurrentPrice] = useState(20000);
   const [maintenanceMarginRate, setMaintenanceMarginRate] = useState(0.005);
-  const [contractValue, setContractValue] = useState(1);
+  const [contractValue, setContractValue] = useState(0.0001);
   const [initialBalance, setInitialBalance] = useState(1000);
   const [currentBalance, setCurrentBalance] = useState(1000); // 当前余额
   const [feeRate, setFeeRate] = useState(0.0004);
@@ -37,15 +37,15 @@ export default function ContractFormulaCalculator() {
     const margin = positionValue / leverage;
     addToLog(`保证金 = 仓位价值 ÷ 杠杆 = ${positionValue.toFixed(4)} ÷ ${leverage} = ${margin.toFixed(4)}`);
     
-    const fee = positionValue * feeRate;
-    addToLog(`手续费 = 仓位价值 × 手续费率 = ${positionValue.toFixed(4)} × ${feeRate} = ${fee.toFixed(4)}`);
+    const openFee = positionValue * feeRate;
+    addToLog(`开仓手续费 = 仓位价值 × 手续费率 = ${positionValue.toFixed(4)} × ${feeRate} = ${openFee.toFixed(4)}`);
     
     const maintenanceMargin = positionValue * maintenanceMarginRate;
     addToLog(`维持保证金 = 仓位价值 × 维持保证金率 = ${positionValue.toFixed(4)} × ${maintenanceMarginRate} = ${maintenanceMargin.toFixed(4)}`);
     
     // 计算DEX但不从当前余额中扣除保证金
-    const dex = currentBalance - maintenanceMargin - fee;
-    addToLog(`可用余额(DEX) = 当前余额 - 维持保证金 - 手续费 = ${currentBalance} - ${maintenanceMargin.toFixed(4)} - ${fee.toFixed(4)} = ${dex.toFixed(4)}`);
+    const dex = currentBalance - maintenanceMargin - openFee;
+    addToLog(`可用余额(DEX) = 当前余额 - 维持保证金 - 手续费 = ${currentBalance} - ${maintenanceMargin.toFixed(4)} - ${openFee.toFixed(4)} = ${dex.toFixed(4)}`);
     
     // 注意：开仓时不改变当前余额，只是计算所需的保证金
     addToLog(`开仓操作不改变当前余额，当前余额保持为: ${currentBalance.toFixed(2)}`);
@@ -53,14 +53,14 @@ export default function ContractFormulaCalculator() {
     let liquidationPrice;
     if (marginType === 'isolated') {
       if (direction === 'long') {
-        liquidationPrice = ((maintenanceMargin - (margin - fee)) + positionValue) / (qty * contractValue);
+        liquidationPrice = ((maintenanceMargin - (margin - openFee)) + positionValue) / (qty * contractValue);
         addToLog(`逐仓多单爆仓价 = (维持保证金 - (保证金 - 手续费) + 仓位价值) ÷ (数量 × 合约面值)`);
-        addToLog(`= (${maintenanceMargin.toFixed(4)} - (${margin.toFixed(4)} - ${fee.toFixed(4)}) + ${positionValue.toFixed(4)}) ÷ (${qty} × ${contractValue})`);
+        addToLog(`= (${maintenanceMargin.toFixed(4)} - (${margin.toFixed(4)} - ${openFee.toFixed(4)}) + ${positionValue.toFixed(4)}) ÷ (${qty} × ${contractValue})`);
         addToLog(`= ${liquidationPrice.toFixed(4)}`);
       } else {
-        liquidationPrice = (((margin - fee) - maintenanceMargin + positionValue) / (qty * contractValue));
+        liquidationPrice = (((margin - openFee) - maintenanceMargin + positionValue) / (qty * contractValue));
         addToLog(`逐仓空单爆仓价 = ((保证金 - 手续费) - 维持保证金 + 仓位价值) ÷ (数量 × 合约面值)`);
-        addToLog(`= ((${margin.toFixed(4)} - ${fee.toFixed(4)}) - ${maintenanceMargin.toFixed(4)} + ${positionValue.toFixed(4)}) ÷ (${qty} × ${contractValue})`);
+        addToLog(`= ((${margin.toFixed(4)} - ${openFee.toFixed(4)}) - ${maintenanceMargin.toFixed(4)} + ${positionValue.toFixed(4)}) ÷ (${qty} × ${contractValue})`);
         addToLog(`= ${liquidationPrice.toFixed(4)}`);
       }
     } else {
@@ -92,7 +92,8 @@ export default function ContractFormulaCalculator() {
       closed: false,
       positionValue: positionValue.toFixed(4),
       margin: margin.toFixed(2),
-      fee: fee.toFixed(2),
+      openFee: openFee.toFixed(4),  // 明确标识为开仓手续费
+      closeFee: null,               // 添加平仓手续费字段，初始为null
       maintenanceMargin: maintenanceMargin.toFixed(2),
       dex: dex.toFixed(2),
       liquidationPrice,
@@ -132,24 +133,24 @@ export default function ContractFormulaCalculator() {
       const margin = positionValue / pos.leverage;
       addToLog(`保证金 = ${positionValue.toFixed(4)} ÷ ${pos.leverage} = ${margin.toFixed(4)}`);
       
-      const fee = positionValue * feeRate;
-      addToLog(`手续费 = ${positionValue.toFixed(4)} × ${feeRate} = ${fee.toFixed(4)}`);
+      const openFee = positionValue * feeRate;
+      addToLog(`开仓手续费 = ${positionValue.toFixed(4)} × ${feeRate} = ${openFee.toFixed(4)}`);
       
       const maintenanceMargin = positionValue * maintenanceMarginRate;
       addToLog(`维持保证金 = ${positionValue.toFixed(4)} × ${maintenanceMarginRate} = ${maintenanceMargin.toFixed(4)}`);
       
       // 使用当前余额
-      const dex = currentBalance - maintenanceMargin - fee;
-      addToLog(`可用余额(DEX) = ${currentBalance} - ${maintenanceMargin.toFixed(4)} - ${fee.toFixed(4)} = ${dex.toFixed(4)}`);
+      const dex = currentBalance - maintenanceMargin - openFee;
+      addToLog(`可用余额(DEX) = ${currentBalance} - ${maintenanceMargin.toFixed(4)} - ${openFee.toFixed(4)} = ${dex.toFixed(4)}`);
       
       let liquidationPrice;
       if (pos.marginType === 'isolated') {
         if (pos.direction === 'long') {
-          liquidationPrice = ((maintenanceMargin - (margin - fee)) + positionValue) / (pos.quantity * contractValue);
-          addToLog(`逐仓多单爆仓价 = (${maintenanceMargin.toFixed(4)} - (${margin.toFixed(4)} - ${fee.toFixed(4)}) + ${positionValue.toFixed(4)}) ÷ (${pos.quantity} × ${contractValue}) = ${liquidationPrice.toFixed(4)}`);
+          liquidationPrice = ((maintenanceMargin - (margin - openFee)) + positionValue) / (pos.quantity * contractValue);
+          addToLog(`逐仓多单爆仓价 = (${maintenanceMargin.toFixed(4)} - (${margin.toFixed(4)} - ${openFee.toFixed(4)}) + ${positionValue.toFixed(4)}) ÷ (${pos.quantity} × ${contractValue}) = ${liquidationPrice.toFixed(4)}`);
         } else {
-          liquidationPrice = (((margin - fee) - maintenanceMargin + positionValue) / (pos.quantity * contractValue));
-          addToLog(`逐仓空单爆仓价 = ((${margin.toFixed(4)} - ${fee.toFixed(4)}) - ${maintenanceMargin.toFixed(4)} + ${positionValue.toFixed(4)}) ÷ (${pos.quantity} × ${contractValue}) = ${liquidationPrice.toFixed(4)}`);
+          liquidationPrice = (((margin - openFee) - maintenanceMargin + positionValue) / (pos.quantity * contractValue));
+          addToLog(`逐仓空单爆仓价 = ((${margin.toFixed(4)} - ${openFee.toFixed(4)}) - ${maintenanceMargin.toFixed(4)} + ${positionValue.toFixed(4)}) ÷ (${pos.quantity} × ${contractValue}) = ${liquidationPrice.toFixed(4)}`);
         }
       } else {
         if (pos.direction === 'long') {
@@ -171,7 +172,7 @@ export default function ContractFormulaCalculator() {
         currentPrice,
         positionValue: positionValue.toFixed(4),
         margin: margin.toFixed(2),
-        fee: fee.toFixed(2),
+        openFee: openFee.toFixed(4),
         maintenanceMargin: maintenanceMargin.toFixed(2),
         dex: dex.toFixed(2),
         liquidationPrice,
@@ -190,11 +191,14 @@ export default function ContractFormulaCalculator() {
     // 计算平仓盈亏
     const delta = pos.direction === 'long' ? closePrice - pos.entryPrice : pos.entryPrice - closePrice;
     const pnl = delta * pos.quantity * contractValue;
+    
+    // 计算平仓手续费
     const closingFee = pos.quantity * contractValue * closePrice * feeRate;
     
-    // 平仓后更新当前余额 = 当前余额 + 盈亏 - 平仓手续费
-    // 注意：平仓时才会实际影响余额
-    const newBalance = currentBalance + parseFloat(pnl) - closingFee;
+    // 平仓后更新当前余额 = 当前余额 + 盈亏 - 开仓手续费 - 平仓手续费
+    // 注意：平仓时才会实际影响余额，并且同时扣除开仓和平仓手续费
+    const openFee = parseFloat(pos.openFee);
+    const newBalance = currentBalance + parseFloat(pnl) - openFee - closingFee;
     
     addToLog(`--- 平仓操作 ---`);
     addToLog(`仓位: ${pos.symbol} ${translateDirection(pos.direction)} ${pos.quantity}张 @${pos.entryPrice}`);
@@ -202,17 +206,19 @@ export default function ContractFormulaCalculator() {
     addToLog(`盈亏计算 = ${pos.direction === 'long' ? `(平仓价 - 开仓价)` : `(开仓价 - 平仓价)`} × 数量 × 合约面值`);
     addToLog(`= ${pos.direction === 'long' ? `(${closePrice} - ${pos.entryPrice})` : `(${pos.entryPrice} - ${closePrice})`} × ${pos.quantity} × ${contractValue}`);
     addToLog(`= ${delta.toFixed(4)} × ${pos.quantity} × ${contractValue} = ${pnl.toFixed(2)}`);
+    addToLog(`开仓手续费 = ${openFee.toFixed(4)}`);
     addToLog(`平仓手续费 = ${pos.quantity} × ${contractValue} × ${closePrice} × ${feeRate} = ${closingFee.toFixed(4)}`);
-    addToLog(`余额变化 = 当前余额 + 盈亏 - 平仓手续费`);
-    addToLog(`= ${currentBalance.toFixed(2)} + ${pnl.toFixed(2)} - ${closingFee.toFixed(4)}`);
+    addToLog(`余额变化 = 当前余额 + 盈亏 - 开仓手续费 - 平仓手续费`);
+    addToLog(`= ${currentBalance.toFixed(2)} + ${pnl.toFixed(2)} - ${openFee.toFixed(4)} - ${closingFee.toFixed(4)}`);
     addToLog(`= ${newBalance.toFixed(2)}`);
     
     // 更新仓位状态
     pos.closed = true;
     pos.closePrice = closePrice;
     pos.realizedPnl = pnl.toFixed(2);
-    pos.closingFee = closingFee.toFixed(4);
+    pos.closeFee = closingFee.toFixed(4);
     pos.closedAt = new Date().toISOString();
+    pos.totalFee = (openFee + closingFee).toFixed(4);
     
     setCurrentBalance(newBalance);
     setPositions(updated);
@@ -253,7 +259,11 @@ export default function ContractFormulaCalculator() {
       message = `保证金计算: 仓位价值 ÷ 杠杆 = ${positionValue.toFixed(4)} ÷ ${pos.leverage} = ${pos.margin}`;
     } else if (type === 'fee') {
       const positionValue = pos.quantity * contractValue * pos.entryPrice;
-      message = `手续费计算: 仓位价值 × 手续费率 = ${positionValue.toFixed(4)} × ${feeRate} = ${pos.fee}`;
+      message = `开仓手续费计算: 仓位价值 × 手续费率 = ${positionValue.toFixed(4)} × ${feeRate} = ${pos.openFee}`;
+      if (pos.closed && pos.closeFee) {
+        message += `\n平仓手续费计算: 仓位价值(平仓时) × 手续费率 = ${pos.quantity} × ${contractValue} × ${pos.closePrice} × ${feeRate} = ${pos.closeFee}`;
+        message += `\n总手续费 = 开仓手续费 + 平仓手续费 = ${pos.openFee} + ${pos.closeFee} = ${pos.totalFee}`;
+      }
     } else if (type === 'positionValue') {
       message = `仓位价值计算: 数量 × 合约面值 × 开仓价 = ${pos.quantity} × ${contractValue} × ${pos.entryPrice} = ${pos.positionValue}`;
     }
@@ -270,7 +280,9 @@ export default function ContractFormulaCalculator() {
     const totalMarginCross = positions.filter(p => p.marginType === 'cross' && !p.closed).reduce((sum, p) => sum + parseFloat(p.margin), 0);
     const totalMarginIsolated = positions.filter(p => p.marginType === 'isolated' && !p.closed).reduce((sum, p) => sum + parseFloat(p.margin), 0);
     const totalMargin = totalMarginCross + totalMarginIsolated;
-    const totalFee = positions.filter(p => !p.closed).reduce((sum, p) => sum + parseFloat(p.fee), 0);
+    const totalOpenFee = positions.filter(p => !p.closed).reduce((sum, p) => sum + parseFloat(p.openFee), 0);
+    const totalCloseFee = positions.filter(p => p.closed && p.closeFee).reduce((sum, p) => sum + parseFloat(p.closeFee), 0);
+    const totalFee = totalOpenFee + totalCloseFee;
     const totalUnrealizedPnl = positions.filter(p => !p.closed).reduce((sum, p) => sum + parseFloat(p.pnl), 0);
     const totalRealizedPnl = positions.filter(p => p.closed && p.realizedPnl).reduce((sum, p) => sum + parseFloat(p.realizedPnl), 0);
     
@@ -281,6 +293,8 @@ export default function ContractFormulaCalculator() {
       totalMarginCross, 
       totalMarginIsolated, 
       totalMargin,
+      totalOpenFee,
+      totalCloseFee,
       totalFee, 
       totalUnrealizedPnl,
       totalRealizedPnl,
@@ -292,6 +306,8 @@ export default function ContractFormulaCalculator() {
     totalMarginCross, 
     totalMarginIsolated,
     totalMargin,
+    totalOpenFee,
+    totalCloseFee,
     totalFee, 
     totalUnrealizedPnl,
     totalRealizedPnl,
@@ -301,6 +317,9 @@ export default function ContractFormulaCalculator() {
   // 添加账户指标计算逻辑日志函数
   const logAccountMetrics = () => {
     addToLog(`--- 账户指标计算 ---`);
+    addToLog(`当前日期时间: 2025-05-15 10:26:17 (UTC)`);
+    addToLog(`用户: phyllaga`);
+    
     const activePositions = positions.filter(p => !p.closed);
     const closedPositions = positions.filter(p => p.closed);
     
@@ -323,16 +342,20 @@ export default function ContractFormulaCalculator() {
     }
     
     if (activePositions.length > 0) {
-      addToLog(`手续费总和计算: ${activePositions.map(p => parseFloat(p.fee)).join(' + ')} = ${totalFee.toFixed(2)}`);
+      addToLog(`开仓手续费总和计算: ${activePositions.map(p => parseFloat(p.openFee)).join(' + ')} = ${totalOpenFee.toFixed(4)}`);
       addToLog(`未实现盈亏总和计算: ${activePositions.map(p => parseFloat(p.pnl)).join(' + ')} = ${totalUnrealizedPnl.toFixed(2)}`);
     } else {
-      addToLog(`手续费总和: 0`);
+      addToLog(`开仓手续费总和: 0`);
       addToLog(`未实现盈亏总和: 0`);
     }
     
     if (closedPositions.length > 0) {
+      addToLog(`平仓手续费总和计算: ${closedPositions.map(p => parseFloat(p.closeFee || 0)).join(' + ')} = ${totalCloseFee.toFixed(4)}`);
+      addToLog(`总手续费 = 开仓手续费总和 + 平仓手续费总和 = ${totalOpenFee.toFixed(4)} + ${totalCloseFee.toFixed(4)} = ${totalFee.toFixed(4)}`);
       addToLog(`已实现盈亏总和计算: ${closedPositions.map(p => parseFloat(p.realizedPnl || 0)).join(' + ')} = ${totalRealizedPnl.toFixed(2)}`);
     } else {
+      addToLog(`平仓手续费总和: 0`);
+      addToLog(`总手续费: ${totalOpenFee.toFixed(4)}`);
       addToLog(`已实现盈亏总和: 0`);
     }
     
@@ -521,8 +544,14 @@ export default function ContractFormulaCalculator() {
             <div className="cursor-pointer" onClick={() => addToLog(`可用资金 = 当前余额 - 总保证金占用 = ${currentBalance.toFixed(2)} - ${totalMargin.toFixed(2)} = ${availableBalance.toFixed(2)}`)}>
               可用资金：<span className="text-blue-500 hover:underline">{availableBalance.toFixed(2)}</span>
             </div>
-            <div className="cursor-pointer" onClick={() => addToLog(`手续费总和 = ${totalFee.toFixed(2)}`)}>
-              手续费总和：<span className="text-blue-500 hover:underline">{totalFee.toFixed(2)}</span>
+            <div className="cursor-pointer" onClick={() => addToLog(`开仓手续费总和 = ${totalOpenFee.toFixed(4)}`)}>
+              开仓手续费总和：<span className="text-blue-500 hover:underline">{totalOpenFee.toFixed(4)}</span>
+            </div>
+            <div className="cursor-pointer" onClick={() => addToLog(`平仓手续费总和 = ${totalCloseFee.toFixed(4)}`)}>
+              平仓手续费总和：<span className="text-blue-500 hover:underline">{totalCloseFee.toFixed(4)}</span>
+            </div>
+            <div className="cursor-pointer" onClick={() => addToLog(`手续费总和 = ${totalFee.toFixed(4)}`)}>
+              手续费总和：<span className="text-blue-500 hover:underline">{totalFee.toFixed(4)}</span>
             </div>
             <div className="cursor-pointer" onClick={() => addToLog(`未实现盈亏 = ${totalUnrealizedPnl.toFixed(2)}`)}>
               未实现盈亏总和：<span className="text-blue-500 hover:underline">{totalUnrealizedPnl.toFixed(2)}</span>
@@ -551,7 +580,8 @@ export default function ContractFormulaCalculator() {
                 <th className="p-2 border">盈亏</th>
                 <th className="p-2 border">张数</th>
                 <th className="p-2 border">保证金</th>
-                <th className="p-2 border">维持保证金</th>
+                <th className="p-2 border">开仓手续费</th>
+                <th className="p-2 border">平仓手续费</th>
                 <th className="p-2 border">操作</th>
               </tr>
             </thead>
@@ -560,12 +590,12 @@ export default function ContractFormulaCalculator() {
                 const positionValue = pos.entryPrice * pos.quantity * contractValue;
                 const maintenanceMargin = positionValue * maintenanceMarginRate;
                 const margin = positionValue / pos.leverage;
-                const fee = positionValue * feeRate;
-                const dex = currentBalance - maintenanceMargin - fee;
+                const openFee = positionValue * feeRate;
+                const dex = currentBalance - maintenanceMargin - openFee;
                 const liquidationPrice = pos.marginType === 'isolated'
                   ? (pos.direction === 'long'
-                      ? ((maintenanceMargin - (margin - fee) + positionValue) / (pos.quantity * contractValue)).toFixed(4)
-                      : (((margin - fee) - maintenanceMargin + positionValue) / (pos.quantity * contractValue)).toFixed(4))
+                      ? ((maintenanceMargin - (margin - openFee) + positionValue) / (pos.quantity * contractValue)).toFixed(4)
+                      : (((margin - openFee) - maintenanceMargin + positionValue) / (pos.quantity * contractValue)).toFixed(4))
                   : (pos.direction === 'long'
                       ? ((positionValue - dex) / (pos.quantity * contractValue)).toFixed(4)
                       : ((positionValue + dex) / (pos.quantity * contractValue)).toFixed(4));
@@ -589,8 +619,8 @@ export default function ContractFormulaCalculator() {
                       onClick={() => {
                         const log = pos.marginType === 'isolated'
                           ? (pos.direction === 'long'
-                              ? `逐仓多单爆仓价 = (${maintenanceMargin.toFixed(4)} - (${margin.toFixed(4)} - ${fee.toFixed(4)}) + ${positionValue.toFixed(4)}) / (${pos.quantity} * ${contractValue}) = ${liquidationPrice}`
-                              : `逐仓空单爆仓价 = ((${margin.toFixed(4)} - ${fee.toFixed(4)}) - ${maintenanceMargin.toFixed(4)} + ${positionValue.toFixed(4)}) / (${pos.quantity} * ${contractValue}) = ${liquidationPrice}`)
+                              ? `逐仓多单爆仓价 = (${maintenanceMargin.toFixed(4)} - (${margin.toFixed(4)} - ${openFee.toFixed(4)}) + ${positionValue.toFixed(4)}) / (${pos.quantity} * ${contractValue}) = ${liquidationPrice}`
+                              : `逐仓空单爆仓价 = ((${margin.toFixed(4)} - ${openFee.toFixed(4)}) - ${maintenanceMargin.toFixed(4)} + ${positionValue.toFixed(4)}) / (${pos.quantity} * ${contractValue}) = ${liquidationPrice}`)
                           : (pos.direction === 'long'
                               ? `全仓多单爆仓价 = (${positionValue.toFixed(4)} - ${dex.toFixed(4)}) / (${pos.quantity} * ${contractValue}) = ${liquidationPrice}`
                               : `全仓空单爆仓价 = (${positionValue.toFixed(4)} + ${dex.toFixed(4)}) / (${pos.quantity} * ${contractValue}) = ${liquidationPrice}`);
@@ -606,10 +636,14 @@ export default function ContractFormulaCalculator() {
                     <td className="p-2 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => logCalculation('margin', pos)}>
                       {pos.margin}
                     </td>
-                    <td 
-                      className="p-2 border text-center text-blue-500 cursor-pointer hover:underline" 
-                      onClick={() => addToLog(`维持保证金 = ${pos.quantity} * ${pos.entryPrice} * ${contractValue} * ${maintenanceMarginRate} = ${maintenanceMargin.toFixed(4)}`)}>
-                      {maintenanceMargin.toFixed(4)}
+                    <td className="p-2 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => logCalculation('fee', pos)}>
+                      {pos.openFee}
+                    </td>
+                    <td className="p-2 border text-center">
+                      {pos.closed ? 
+                        <span className="text-blue-500 hover:underline cursor-pointer" onClick={() => addToLog(`平仓手续费 = ${pos.closeFee}`)}>
+                          {pos.closeFee}
+                        </span> : "-"}
                     </td>
                     <td className="p-2 border text-center">
                       {pos.closed ? (
