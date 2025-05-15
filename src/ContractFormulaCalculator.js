@@ -224,7 +224,7 @@ export default function ContractFormulaCalculator() {
     <div className="col-span-1 bg-white p-4 border rounded mb-4">
       <h3 className="text-lg font-bold mb-2">账户信息</h3>
       <div className="grid grid-cols-1 gap-2 text-sm\">
-        <div className=\"cursor-pointer\" onClick={() => setLogs(prev => [...prev, `已实现盈亏 = ${totalRealizedPnl.toFixed(2)}`])}>已实现盈亏：{totalRealizedPnl.toFixed(2)}</div>
+        <div className="cursor-pointer" onClick={() => setLogs(prev => [...prev, `已实现盈亏 = ${totalRealizedPnl.toFixed(2)}`])}>已实现盈亏：{totalRealizedPnl.toFixed(2)}</div>
         <div className="cursor-pointer" onClick={() => setLogs(prev => [...prev, `当前余额 = 初始余额 = ${initialBalance.toFixed(2)}`])}>当前余额：{initialBalance.toFixed(2)}</div>
         <div className="cursor-pointer" onClick={() => setLogs(prev => [...prev, `逐仓保证金 = ${totalMarginIsolated.toFixed(2)}`])}>逐仓保证金占用：{totalMarginIsolated.toFixed(2)}</div>
         <div className="cursor-pointer" onClick={() => setLogs(prev => [...prev, `全仓保证金 = ${totalMarginCross.toFixed(2)}`])}>全仓保证金占用：{totalMarginCross.toFixed(2)}</div>
@@ -251,9 +251,9 @@ export default function ContractFormulaCalculator() {
             <th className="p-2 border">张数</th>
             <th className="p-2 border">维持保证金</th>
             <th className="p-2 border">强平价</th>
-            <th className=\"p-2 border\">平仓价</th>
-            <th className=\"p-2 border\">已实现盈亏</th>
-            <th className=\"p-2 border\">操作</th>
+            <th className="p-2 border">平仓价</th>
+            <th className="p-2 border">已实现盈亏</th>
+            <th className="p-2 border">操作</th>
           </tr>
         </thead>
         <tbody>
@@ -293,9 +293,9 @@ export default function ContractFormulaCalculator() {
                   setLogs(prev => [...prev, log]);
                 }}>{liquidationPrice}</td>
                 <td className="p-2 border text-blue-500 text-center cursor-pointer" onClick={() => logCalculation('pnl', pos)}>{pos.pnl}</td>
-                <td className=\"p-2 border text-center\">{pos.quantity}</td>
-                <td className=\"p-2 border text-center\">{pos.closePrice ?? '-'}</td>
-                <td className=\"p-2 border text-center\">{pos.realizedPnl ?? '-'}</td>
+                <td className="p-2 border text-center\">{pos.quantity}</td>
+                <td className="p-2 border text-center\">{pos.closePrice ?? '-'}</td>
+                <td className="p-2 border text-center\">{pos.realizedPnl ?? '-'}</td>
                 <td className="p-2 border text-center text-blue-500 cursor-pointer" onClick={() => setLogs(prev => [...prev, `维持保证金 = ${pos.quantity} * ${pos.entryPrice} * ${contractValue} * ${maintenanceMarginRate} = ${maintenanceMargin.toFixed(4)}`])}>{maintenanceMargin.toFixed(4)}</td>
                 <td className="p-2 border text-center text-blue-500 cursor-pointer" onClick={() => setLogs(prev => [...prev, `强平价 = ${forcedPrice}`])}>{forcedPrice}</td>
                 <td className="p-2 border text-center">
