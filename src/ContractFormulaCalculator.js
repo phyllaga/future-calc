@@ -30,11 +30,11 @@ export default function ContractFormulaCalculator() {
     const dex = initialBalance - maintenanceMargin - fee;
     const liquidationPrice = marginType === 'isolated'
       ? (direction === 'long'
-          ? ((margin - fee - maintenanceMargin + positionValue) / (qty * contractValue)).toFixed(4)
-          : ((margin - fee + maintenanceMargin + positionValue) / (qty * contractValue)).toFixed(4))
+          ? ((maintenanceMargin - (margin - fee) + ep * qty * contractValue) / (qty * contractValue)).toFixed(4)
+          : (((margin - fee) - maintenanceMargin + ep * qty * contractValue) / (qty * contractValue)).toFixed(4))
       : (direction === 'long'
-          ? ((positionValue - dex) / (qty * contractValue)).toFixed(4)
-          : ((positionValue + dex) / (qty * contractValue)).toFixed(4));const pos = {
+          ? ((ep * qty * contractValue - dex) / (qty * contractValue)).toFixed(4)
+          : ((ep * qty * contractValue + dex) / (qty * contractValue)).toFixed(4));const pos = {
       symbol,
       direction,
       entryPrice: ep,
@@ -67,11 +67,11 @@ export default function ContractFormulaCalculator() {
       const dex = initialBalance - maintenanceMargin - fee;
       const liquidationPrice = pos.marginType === 'isolated'
         ? (pos.direction === 'long'
-            ? ((margin - fee - maintenanceMargin + positionValue) / (pos.quantity * contractValue)).toFixed(4)
-            : ((margin - fee + maintenanceMargin + positionValue) / (pos.quantity * contractValue)).toFixed(4))
+            ? ((maintenanceMargin - (margin - fee) + pos.entryPrice * pos.quantity * contractValue) / (pos.quantity * contractValue)).toFixed(4)
+            : (((margin - fee) - maintenanceMargin + pos.entryPrice * pos.quantity * contractValue) / (pos.quantity * contractValue)).toFixed(4))
         : (pos.direction === 'long'
-            ? ((positionValue - dex) / (pos.quantity * contractValue)).toFixed(4)
-            : ((positionValue + dex) / (pos.quantity * contractValue)).toFixed(4));return {
+            ? ((pos.entryPrice * pos.quantity * contractValue - dex) / (pos.quantity * contractValue)).toFixed(4)
+            : ((pos.entryPrice * pos.quantity * contractValue + dex) / (pos.quantity * contractValue)).toFixed(4));return {
         ...pos,
         currentPrice,
         margin: margin.toFixed(2),
