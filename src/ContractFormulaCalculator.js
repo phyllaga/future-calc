@@ -8,7 +8,7 @@ export default function ContractFormulaCalculator() {
   const [balance, setBalance] = useState(1000);
   const [openFeeRate, setOpenFeeRate] = useState(0.0003);
   const [closeFeeRate, setCloseFeeRate] = useState(0.0005);
-  const [log, setLog] = useState('');
+  const [logs, setLogs] = useState([]);
 
   const [entryPrice, setEntryPrice] = useState('');
   const [quantity, setQuantity] = useState('');
@@ -65,6 +65,10 @@ export default function ContractFormulaCalculator() {
     setPositions(updated);
   };
 
+  const deletePosition = (index) => {
+    setPositions(positions.filter((_, i) => i !== index));
+  };
+
   const logCalculation = (type, pos) => {
     let message = '';
     if (type === 'pnl') {
@@ -74,8 +78,10 @@ export default function ContractFormulaCalculator() {
       const mmr = maintenanceMarginRate;
       message = `爆仓价计算: ${pos.direction === 'long' ? `${pos.entryPrice} * (1 - 1/${pos.leverage} + ${mmr})` : `${pos.entryPrice} * (1 + 1/${pos.leverage} - ${mmr})`} = ${pos.liquidationPrice}`;
     }
-    setLog(message);
+    setLogs(prev => [...prev, message]);
   };
+
+  const clearLogs = () => setLogs([]);
 
   useEffect(() => {
     recalculateAllPositions();
@@ -182,7 +188,10 @@ export default function ContractFormulaCalculator() {
                   {pos.closed ? (
                     <span className="text-gray-400">已平仓</span>
                   ) : (
-                    <button onClick={() => closePosition(idx)} className="bg-red-500 text-white px-2 py-1 rounded">平仓</button>
+                    <div className="flex flex-col items-center gap-1">
+                      <button onClick={() => closePosition(idx)} className="bg-red-500 text-white px-2 py-1 rounded">平仓</button>
+                      <button onClick={() => deletePosition(idx)} className="bg-gray-500 text-white px-2 py-1 rounded">删除</button>
+                    </div>
                   )}
                 </td>
               </tr>
@@ -193,8 +202,11 @@ export default function ContractFormulaCalculator() {
 
       {/* 底部 Console 输出区 */}
       <div className="col-span-3 mt-4 bg-black text-green-400 p-4 rounded font-mono text-sm">
-        <strong>计算日志:</strong>
-        <pre>{log}</pre>
+        <div className="flex justify-between items-center mb-2">
+          <strong>计算日志:</strong>
+          <button onClick={clearLogs} className="bg-gray-700 text-white px-2 py-1 rounded">清空日志</button>
+        </div>
+        <pre>{logs.map((line, i) => <div key={i}>{line}</div>)}</pre>
       </div>
     </div>
   );
