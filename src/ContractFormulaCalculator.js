@@ -170,7 +170,33 @@ export default function ContractFormulaCalculator() {
           <div>当前可开保证金：{availableMargin.toFixed(2)}</div>
         </div>
       </div>
+ {/* 仓位创建区 */}
+      <div className="col-span-1 bg-white p-4 border rounded">
+        <h3 className="text-lg font-bold mb-2">新增仓位</h3>
 
+        <label className="block mb-1">开仓价格</label>
+        <input type="number" value={entryPrice} onChange={e => setEntryPrice(e.target.value)} className="w-full p-2 border rounded mb-2" />
+
+        <label className="block mb-1">张数</label>
+        <input type="number" value={quantity} onChange={e => setQuantity(e.target.value)} className="w-full p-2 border rounded mb-2" />
+
+        <label className="block mb-1">杠杆倍数</label>
+        <input type="number" value={leverage} onChange={e => setLeverage(parseFloat(e.target.value))} className="w-full p-2 border rounded mb-2" />
+
+        <label className="block mb-1">方向</label>
+        <select value={direction} onChange={e => setDirection(e.target.value)} className="w-full p-2 border rounded mb-2">
+          <option value="long">多单</option>
+          <option value="short">空单</option>
+        </select>
+
+        <label className="block mb-1">仓位类型</label>
+        <select value={marginType} onChange={e => setMarginType(e.target.value)} className="w-full p-2 border rounded mb-2">
+          <option value="cross">全仓</option>
+          <option value="isolated">逐仓</option>
+        </select>
+
+        <button onClick={createPosition} className="bg-blue-600 text-white px-4 py-2 rounded mt-2 w-full">创建持仓</button>
+      </div>
       {/* 持仓列表展示区 */}
       <div className="col-span-3 bg-white p-4 border rounded">
         <h3 className="text-lg font-bold mb-4">持仓列表</h3>
