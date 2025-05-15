@@ -29,10 +29,14 @@ export default function ContractFormulaCalculator() {
     const liquidationPrice = marginType === 'isolated'
       ? (direction === 'long'
           ? ((maintenanceMargin - (margin - fee)) + positionValue) / (qty * contractValue)
-          : (((margin - fee) - maintenanceMargin + positionValue) / (qty * contractValue))).toFixed(4)
+          : (((margin - fee) - maintenanceMargin + positionValue) / (qty * contractValue))
+        ).toFixed(4)
       : (direction === 'long'
-          ? ((positionValue - dex) / (qty * contractValue)).toFixed(4)
-          : ((positionValue + dex) / (qty * contractValue)).toFixed(4));const pos = {
+          ? ((positionValue - dex) / (qty * contractValue))
+          : ((positionValue + dex) / (qty * contractValue))
+        ).toFixed(4);
+
+    const pos = {
       symbol,
       direction,
       entryPrice: ep,
@@ -68,10 +72,14 @@ export default function ContractFormulaCalculator() {
       const liquidationPrice = pos.marginType === 'isolated'
         ? (pos.direction === 'long'
             ? ((maintenanceMargin - (margin - fee)) + positionValue) / (pos.quantity * contractValue)
-            : (((margin - fee) - maintenanceMargin + positionValue) / (pos.quantity * contractValue))).toFixed(4)
+            : (((margin - fee) - maintenanceMargin + positionValue) / (pos.quantity * contractValue))
+          ).toFixed(4)
         : (pos.direction === 'long'
-            ? ((positionValue - dex) / (pos.quantity * contractValue)).toFixed(4)
-            : ((positionValue + dex) / (pos.quantity * contractValue)).toFixed(4));return {
+            ? ((positionValue - dex) / (pos.quantity * contractValue))
+            : ((positionValue + dex) / (pos.quantity * contractValue))
+          ).toFixed(4);
+
+      return {
         ...pos,
         currentPrice,
         margin: margin.toFixed(2),
@@ -97,12 +105,11 @@ export default function ContractFormulaCalculator() {
     pos.closePrice = closePrice;
     pos.realizedPnl = pnl;
 
-    // 更新账户余额（初始余额 + 盈亏 - 手续费）
     setInitialBalance(prev => prev + pnl - fee);
     setPositions(updated);
     setLogs(prev => [
       ...prev,
-      `平仓：${pos.symbol} ${translateDirection(pos.direction)} @${closePrice}，盈亏=${pnl}，手续费=${fee}，更新余额=${(initialBalance + pnl - fee).toFixed(2)}`
+      `平仓：${pos.symbol} ${translateDirection(pos.direction)} @${closePrice}，盈亏=${pnl}，手续费=${fee}`
     ]);
   };
 
@@ -118,17 +125,12 @@ export default function ContractFormulaCalculator() {
         : `${pos.entryPrice} - ${pos.currentPrice}`;
       message = `盈亏计算: (${delta}) * ${pos.quantity} * ${contractValue} = ${pos.pnl}`;
     } else if (type === 'liq') {
-      message = `爆仓价计算: ${
-        pos.direction === 'long'
-          ? `(${pos.quantity} * ${contractValue} * ${pos.entryPrice} - ${pos.dex}) / (${pos.quantity} * ${contractValue})`
-          : `(${pos.quantity} * ${contractValue} * ${pos.entryPrice} + ${pos.dex}) / (${pos.quantity} * ${contractValue})`
-      } = ${pos.liquidationPrice}`;
+      message = `爆仓价计算: ${pos.liquidationPrice}`;
     }
     setLogs(prev => [...prev, message]);
   };
 
   const clearLogs = () => setLogs([]);
-
   const translateDirection = (dir) => dir === 'long' ? '多单' : '空单';
   const translateMarginType = (type) => type === 'cross' ? '全仓' : '逐仓';
 
@@ -148,6 +150,7 @@ export default function ContractFormulaCalculator() {
   useEffect(() => {
     recalculateAllPositions();
   }, [currentPrice, maintenanceMarginRate, feeRate, initialBalance]);
+
 
   return (
     <>
@@ -237,7 +240,9 @@ export default function ContractFormulaCalculator() {
 
     <div className="col-span-2 bg-white p-4 border rounded">
       <h3 className="text-lg font-bold mb-4">持仓列表</h3>
-      <table className="w-full text-sm border">
+     
+
+     <table className="w-full text-sm border">
         <thead className="bg-gray-200">
           <tr>
             <th className="p-2 border">交易对</th>
@@ -250,67 +255,38 @@ export default function ContractFormulaCalculator() {
             <th className="p-2 border">盈亏</th>
             <th className="p-2 border">张数</th>
             <th className="p-2 border">维持保证金</th>
-            <th className="p-2 border">强平价</th>
             <th className="p-2 border">平仓价</th>
             <th className="p-2 border">已实现盈亏</th>
             <th className="p-2 border">操作</th>
           </tr>
         </thead>
         <tbody>
-          {positions.map((pos, idx) => {
-            const positionValue = pos.entryPrice * pos.quantity * contractValue;
-            const maintenanceMargin = positionValue * maintenanceMarginRate;
-            const margin = positionValue / pos.leverage;
-            const fee = positionValue * feeRate;
-            const liquidationPrice = pos.marginType === 'isolated'
-              ? (pos.direction === 'long'
-                  ? ((maintenanceMargin - (margin - fee) + positionValue) / (pos.quantity * contractValue)).toFixed(4)
-                  : (((margin - fee) - maintenanceMargin + positionValue) / (pos.quantity * contractValue)).toFixed(4))
-              : (pos.direction === 'long'
-                  ? ((positionValue - dex) / (pos.quantity * contractValue)).toFixed(4)
-                  : ((positionValue + dex) / (pos.quantity * contractValue)).toFixed(4));
-
-            const forcedPrice = pos.direction === 'long'
-              ? ((maintenanceMargin - (margin - fee) + positionValue) / (pos.quantity * contractValue)).toFixed(4)
-              : (((margin - fee) - maintenanceMargin + positionValue) / (pos.quantity * contractValue)).toFixed(4);
-
-            return (
-              <tr key={idx}>
-                <td className="p-2 border text-center">{pos.symbol}</td>
-                <td className="p-2 border text-center">{translateDirection(pos.direction)}</td>
-                <td className="p-2 border text-center">{translateMarginType(pos.marginType)}</td>
-                <td className="p-2 border text-center">{pos.leverage}</td>
-                <td className="p-2 border text-center">{pos.entryPrice}</td>
-                <td className="p-2 border text-center">{pos.currentPrice}</td>
-                <td className="p-2 border text-blue-500 text-center cursor-pointer" onClick={() => {
-                  const log = pos.marginType === 'isolated'
-                    ? (pos.direction === 'long'
-                        ? `逐仓爆仓价 = (${maintenanceMargin.toFixed(4)} - (${margin.toFixed(4)} - ${fee.toFixed(4)}) + ${positionValue.toFixed(4)}) / (${pos.quantity} * ${contractValue}) = ${liquidationPrice}`
-                        : `逐仓爆仓价 = ((${margin.toFixed(4)} - ${fee.toFixed(4)}) - ${maintenanceMargin.toFixed(4)} + ${positionValue.toFixed(4)}) / (${pos.quantity} * ${contractValue}) = ${liquidationPrice}`)
-                    : (pos.direction === 'long'
-                        ? `全仓爆仓价 = (${positionValue.toFixed(4)} - ${dex.toFixed(4)}) / (${pos.quantity} * ${contractValue}) = ${liquidationPrice}`
-                        : `全仓爆仓价 = (${positionValue.toFixed(4)} + ${dex.toFixed(4)}) / (${pos.quantity} * ${contractValue}) = ${liquidationPrice}`);
-                  setLogs(prev => [...prev, log]);
-                }}>{liquidationPrice}</td>
-                <td className="p-2 border text-blue-500 text-center cursor-pointer" onClick={() => logCalculation('pnl', pos)}>{pos.pnl}</td>
-                <td className="p-2 border text-center\">{pos.quantity}</td>
-                <td className="p-2 border text-center\">{pos.closePrice ?? '-'}</td>
-                <td className="p-2 border text-center\">{pos.realizedPnl ?? '-'}</td>
-                <td className="p-2 border text-center text-blue-500 cursor-pointer" onClick={() => setLogs(prev => [...prev, `维持保证金 = ${pos.quantity} * ${pos.entryPrice} * ${contractValue} * ${maintenanceMarginRate} = ${maintenanceMargin.toFixed(4)}`])}>{maintenanceMargin.toFixed(4)}</td>
-                <td className="p-2 border text-center text-blue-500 cursor-pointer" onClick={() => setLogs(prev => [...prev, `强平价 = ${forcedPrice}`])}>{forcedPrice}</td>
-                <td className="p-2 border text-center">
-                  {pos.closed ? (
-                    <span className="text-gray-400">已平仓</span>
-                  ) : (
-                    <div className="flex flex-col items-center gap-1">
-                      <button onClick={() => closePosition(idx)} className="bg-red-500 text-white px-2 py-1 rounded">平仓</button>
-                      <button onClick={() => deletePosition(idx)} className="bg-gray-500 text-white px-2 py-1 rounded">删除</button>
-                    </div>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
+          {positions.map((pos, idx) => (
+            <tr key={idx}>
+              <td className="p-2 border text-center">{pos.symbol}</td>
+              <td className="p-2 border text-center">{translateDirection(pos.direction)}</td>
+              <td className="p-2 border text-center">{translateMarginType(pos.marginType)}</td>
+              <td className="p-2 border text-center">{pos.leverage}</td>
+              <td className="p-2 border text-center">{pos.entryPrice}</td>
+              <td className="p-2 border text-center">{pos.currentPrice}</td>
+              <td className="p-2 border text-center">{pos.liquidationPrice}</td>
+              <td className="p-2 border text-center">{pos.pnl}</td>
+              <td className="p-2 border text-center">{pos.quantity}</td>
+              <td className="p-2 border text-center">{pos.maintenanceMargin}</td>
+              <td className="p-2 border text-center">{pos.closePrice ?? '-'}</td>
+              <td className="p-2 border text-center">{pos.realizedPnl ?? '-'}</td>
+              <td className="p-2 border text-center">
+                {pos.closed ? (
+                  <span className="text-gray-400">已平仓</span>
+                ) : (
+                  <div className="flex flex-col items-center gap-1">
+                    <button onClick={() => closePosition(idx)} className="bg-red-500 text-white px-2 py-1 rounded">平仓</button>
+                    <button onClick={() => deletePosition(idx)} className="bg-gray-500 text-white px-2 py-1 rounded">删除</button>
+                  </div>
+                )}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
