@@ -171,7 +171,60 @@ export default function ContractFormulaCalculator() {
         </div>
       </div>
 
-      {/* 其余部分保留不变... */}
+      {/* 持仓列表展示区 */}
+      <div className="col-span-3 bg-white p-4 border rounded">
+        <h3 className="text-lg font-bold mb-4">持仓列表</h3>
+        <table className="w-full text-sm border">
+          <thead className="bg-gray-200">
+            <tr>
+              <th className="p-2 border">交易对</th>
+              <th className="p-2 border">方向</th>
+              <th className="p-2 border">类型</th>
+              <th className="p-2 border">杠杆</th>
+              <th className="p-2 border">开仓价</th>
+              <th className="p-2 border">当前价</th>
+              <th className="p-2 border">爆仓价</th>
+              <th className="p-2 border">盈亏</th>
+              <th className="p-2 border">张数</th>
+              <th className="p-2 border">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {positions.map((pos, idx) => (
+              <tr key={idx}>
+                <td className="p-2 border text-center">{pos.symbol}</td>
+                <td className="p-2 border text-center">{translateDirection(pos.direction)}</td>
+                <td className="p-2 border text-center">{translateMarginType(pos.marginType)}</td>
+                <td className="p-2 border text-center">{pos.leverage}</td>
+                <td className="p-2 border text-center">{pos.entryPrice}</td>
+                <td className="p-2 border text-center">{pos.currentPrice}</td>
+                <td className="p-2 border text-center text-blue-500 cursor-pointer" onClick={() => logCalculation('liq', pos)}>{pos.liquidationPrice}</td>
+                <td className="p-2 border text-center text-blue-500 cursor-pointer" onClick={() => logCalculation('pnl', pos)}>{pos.pnl}</td>
+                <td className="p-2 border text-center">{pos.quantity}</td>
+                <td className="p-2 border text-center">
+                  {pos.closed ? (
+                    <span className="text-gray-400">已平仓</span>
+                  ) : (
+                    <div className="flex flex-col items-center gap-1">
+                      <button onClick={() => closePosition(idx)} className="bg-red-500 text-white px-2 py-1 rounded">平仓</button>
+                      <button onClick={() => deletePosition(idx)} className="bg-gray-500 text-white px-2 py-1 rounded">删除</button>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 底部 Console 输出区 */}
+      <div className="col-span-3 mt-4 bg-black text-green-400 p-4 rounded font-mono text-sm">
+        <div className="flex justify-between items-center mb-2">
+          <strong>计算日志:</strong>
+          <button onClick={clearLogs} className="bg-gray-700 text-white px-2 py-1 rounded">清空日志</button>
+        </div>
+        <pre>{logs.map((line, i) => <div key={i}>{line}</div>)}</pre>
+      </div>
     </div>
   );
 }
