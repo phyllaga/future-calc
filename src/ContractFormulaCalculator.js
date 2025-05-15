@@ -196,7 +196,7 @@ export default function ContractFormulaCalculator() {
     </div>
   </div>
 {/* 原有内容 */}
-  <div className="col-span-3 grid grid-cols-3 gap-4">
+   <div className="col-span-3 grid grid-cols-3 gap-4">
     <div className="col-span-1 bg-white p-4 border rounded mb-4">
       <h3 className="text-lg font-bold mb-2">账户信息</h3>
       <div className="grid grid-cols-1 gap-2 text-sm">
@@ -255,9 +255,32 @@ export default function ContractFormulaCalculator() {
                 <td className="p-2 border text-center">{pos.leverage}</td>
                 <td className="p-2 border text-center">{pos.entryPrice}</td>
                 <td className="p-2 border text-center">{pos.currentPrice}</td>
-                <td
-                  className="p-2 border text-blue-500 text-center cursor-pointer"
-                  onClick={() => setLogs(prev => [...prev, `爆仓价（${translateDirection(pos.direction)}） = (${positionValue.toFixed(2)} ${pos.direction === 'long' ? '-' : '+'} ${dex.toFixed(2)}) / (${pos.quantity} * ${contractValue}) = ${liquidationPrice}
+                <td className="p-2 border text-blue-500 text-center cursor-pointer" onClick={() => {
+                  const log = pos.marginType === 'isolated'
+                    ? (pos.direction === 'long'
+                        ? `逐仓爆仓价 = (${maintenanceMargin.toFixed(4)} - (${margin.toFixed(4)} - ${fee.toFixed(4)}) + ${positionValue.toFixed(4)}) / (${pos.quantity} * ${contractValue}) = ${liquidationPrice}`
+                        : `逐仓爆仓价 = ((${margin.toFixed(4)} - ${fee.toFixed(4)}) - ${maintenanceMargin.toFixed(4)} + ${positionValue.toFixed(4)}) / (${pos.quantity} * ${contractValue}) = ${liquidationPrice}`)
+                    : (pos.direction === 'long'
+                        ? `全仓爆仓价 = (${positionValue.toFixed(4)} - ${dex.toFixed(4)}) / (${pos.quantity} * ${contractValue}) = ${liquidationPrice}`
+                        : `全仓爆仓价 = (${positionValue.toFixed(4)} + ${dex.toFixed(4)}) / (${pos.quantity} * ${contractValue}) = ${liquidationPrice}`);
+                  setLogs(prev => [...prev, log]);
+                }}>{liquidationPrice}</td>
+                <td className="p-2 border text-blue-500 text-center cursor-pointer" onClick={() => logCalculation('pnl', pos)}>{pos.pnl}</td>
+                <td className="p-2 border text-center">{pos.quantity}</td>
+                <td className="p-2 border text-center text-blue-500 cursor-pointer" onClick={() => setLogs(prev => [...prev, `维持保证金 = ${pos.quantity} * ${pos.entryPrice} * ${contractValue} * ${maintenanceMarginRate} = ${maintenanceMargin.toFixed(4)}`])}>{maintenanceMargin.toFixed(4)}</td>
+                <td className="p-2 border text-center text-blue-500 cursor-pointer" onClick={() => setLogs(prev => [...prev, `强平价 = ${forcedPrice}`])}>{forcedPrice}</td>
+                <td className="p-2 border text-center">
+                  {pos.closed ? (
+                    <span className="text-gray-400">已平仓</span>
+                  ) : (
+                    <div className="flex flex-col items-center gap-1">
+                      <button onClick={() => closePosition(idx)} className="bg-red-500 text-white px-2 py-1 rounded">平仓</button>
+                      <button onClick={() => deletePosition(idx)} className="bg-gray-500 text-white px-2 py-1 rounded">删除</button>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            );
           })}
         </tbody>
       </table>
@@ -265,7 +288,8 @@ export default function ContractFormulaCalculator() {
   </div>
 
 
-  
+
+
 
 
 
