@@ -16,10 +16,80 @@ export default function ContractFormulaCalculator() {
   const [leverage, setLeverage] = useState(10);
   const [marginType, setMarginType] = useState('cross');
   const [positions, setPositions] = useState([]);
+  
+  // 交易对列表
+  const [availableSymbols, setAvailableSymbols] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   // 当前日期和时间，用户名
-  const currentDateTime = "2025-05-15 14:23:54";
+  const currentDateTime = "2025-05-15 16:19:59";
   const currentUser = "phyllaga";
+
+  // 获取交易对列表和最新价格
+  useEffect(() => {
+    fetchSymbols();
+  }, []);
+  
+  // 获取交易对列表
+  const fetchSymbols = async () => {
+    setIsLoading(true);
+    addToLog(`--- 正在获取交易对列表 ---`);
+    
+    try {
+      const response = await fetch('https://mgbx.com/futures/fapi/market/v1/public/m/allticker');
+      const data = await response.json();
+      
+      if (data && data.data && Array.isArray(data.data)) {
+        // 整理交易对数据
+        const symbols = data.data.map(item => ({
+          symbol: item.symbol,
+          last: parseFloat(item.last)
+        })).sort((a, b) => a.symbol.localeCompare(b.symbol));
+        
+        setAvailableSymbols(symbols);
+        addToLog(`成功获取 ${symbols.length} 个交易对`);
+      }
+    } catch (error) {
+      addToLog(`获取交易对列表失败: ${error.message}`);
+    }
+    
+    setIsLoading(false);
+  };
+  
+  // 处理交易对选择
+  const handleSymbolChange = (e) => {
+    const selectedSymbol = e.target.value;
+    const selectedData = availableSymbols.find(s => s.symbol === selectedSymbol);
+    
+    if (selectedData) {
+      setSymbol(selectedData.symbol);
+      
+      // 更新最新价格
+      const price = selectedData.last;
+      setCurrentPrice(price);
+      
+      // 计算合约面值（最小精度）
+      const priceStr = price.toString();
+      let minPrecision;
+      
+      if (priceStr.includes('.')) {
+        const decimalPart = priceStr.split('.')[1];
+        minPrecision = Math.pow(10, -decimalPart.length);
+      } else {
+        minPrecision = 1;
+      }
+      
+      setContractValue(minPrecision);
+      
+      addToLog(`--- 交易对已切换 ---`);
+      addToLog(`交易对: ${selectedData.symbol}`);
+      addToLog(`最新价格: ${price}`);
+      addToLog(`面值(最小精度): ${minPrecision}`);
+      
+      // 重新计算所有仓位
+      setTimeout(() => recalculateAllPositions(), 100);
+    }
+  };
 
   // 记录计算过程到日志
   const addToLog = (message) => {
@@ -630,6 +700,17 @@ export default function ContractFormulaCalculator() {
     }
   };
 
+  const refreshPrice = () => {
+    const selectedData = availableSymbols.find(s => s.symbol === symbol);
+    if (selectedData) {
+      setCurrentPrice(selectedData.last);
+      addToLog(`已刷新当前价格: ${selectedData.last}`);
+      recalculateAllPositions();
+    } else {
+      addToLog(`无法刷新价格，请先选择交易对`);
+    }
+  };
+
   useEffect(() => {
     recalculateAllPositions();
   }, [currentPrice, maintenanceMarginRate, feeRate]);
@@ -648,17 +729,52 @@ export default function ContractFormulaCalculator() {
         <div className="grid grid-cols-6 gap-4">
           <div>
             <label className="block mb-1">交易对</label>
-            <input value={symbol} onChange={e => setSymbol(e.target.value)} className="w-full p-2 border rounded" />
+            <div className="flex gap-2">
+              <select
+                value={symbol}
+                onChange={handleSymbolChange}
+                className="w-full p-2 border rounded"
+                disabled={isLoading}
+              >
+                {availableSymbols.length === 0 ? (
+                  <option value="">加载中...</option>
+                ) : (
+                  <>
+                    <option value="">选择交易对</option>
+                    {availableSymbols.map(s => (
+                      <option key={s.symbol} value={s.symbol}>
+                        {s.symbol} ({s.last})
+                      </option>
+                    ))}
+                  </>
+                )}
+              </select>
+              <button 
+                onClick={fetchSymbols} 
+                className="bg-gray-300 px-2 py-1 rounded hover:bg-gray-400"
+                disabled={isLoading}
+              >
+                {isLoading ? "加载中..." : "刷新"}
+              </button>
+            </div>
           </div>
           <div>
             <label className="block mb-1">当前价格</label>
-            <input 
-              type="number" 
-              value={currentPrice} 
-              onChange={e => setCurrentPrice(parseFloat(e.target.value))} 
-              className="w-full p-2 border rounded" 
-              onClick={() => addToLog(`当前价格设置为 ${currentPrice}`)}
-            />
+            <div className="flex gap-2">
+              <input 
+                type="number" 
+                value={currentPrice} 
+                onChange={e => setCurrentPrice(parseFloat(e.target.value))} 
+                className="w-full p-2 border rounded" 
+                onClick={() => addToLog(`当前价格设置为 ${currentPrice}`)}
+              />
+              <button 
+                onClick={refreshPrice} 
+                className="bg-gray-300 px-2 py-1 rounded hover:bg-gray-400"
+              >
+                刷新价格
+              </button>
+            </div>
           </div>
           <div>
             <label className="block mb-1">维持保证金率</label>
@@ -838,7 +954,7 @@ export default function ContractFormulaCalculator() {
           </div>
         </div>
 
-        <div className="col-span-2 bg-white p-4 border rounded">
+        <div className="col-span-2 bg-white p-4 border rounded overflow-x-auto">
           <h3 className="text-lg font-bold mb-4">持仓列表</h3>
           <table className="w-full text-sm border">
             <thead className="bg-gray-200">
@@ -869,7 +985,7 @@ export default function ContractFormulaCalculator() {
                   <td className="p-2 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => addToLog(`杠杆倍数: ${pos.leverage}x`)}>
                     {pos.leverage}
                   </td>
-                  <td className="p-2 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => addToLog(`开仓价: ${pos.entryPrice}`)}>
+                                    <td className="p-2 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => addToLog(`开仓价: ${pos.entryPrice}`)}>
                     {pos.entryPrice}
                   </td>
                   <td className="p-2 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => addToLog(`当前价: ${pos.currentPrice}`)}>
