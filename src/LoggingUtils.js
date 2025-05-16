@@ -5,31 +5,53 @@
 import { translateDirection } from './CalculationUtils';
 
 // 记录余额变更历史
+// 记录余额变更历史
 export const logBalanceHistory = (positions, initialBalance, currentBalance, addToLog) => {
   addToLog(`--- 余额变更历史 ---`);
   addToLog(`初始余额: ${initialBalance.toFixed(2)}`);
-  
+
   // 查找所有已平仓的仓位
   const closedPositions = positions.filter(p => p.closed);
-  
+
   if (closedPositions.length > 0) {
     let runningBalance = initialBalance;
-    
+
     closedPositions.forEach((pos, index) => {
       const posRealizedPnl = parseFloat(pos.realizedPnl);
       const posOpenFee = parseFloat(pos.openFee);
       const posCloseFee = parseFloat(pos.closeFee);
-      
-      runningBalance = runningBalance + posRealizedPnl - posOpenFee - posCloseFee;
-      
-      addToLog(`[${index + 1}] ${pos.symbol} ${translateDirection(pos.direction)} ${pos.quantity}张 @${pos.entryPrice}→${pos.closePrice}:`);
+
+      // 详细展示这笔交易对余额的影响
+      addToLog(`\n[${index + 1}] ${pos.symbol} ${translateDirection(pos.direction)} ${pos.quantity}张`);
+      addToLog(`  开仓价: ${pos.entryPrice} → 平仓价: ${pos.closePrice}`);
       addToLog(`  已实现盈亏: ${posRealizedPnl >= 0 ? '+' : ''}${posRealizedPnl.toFixed(2)}`);
       addToLog(`  开仓手续费: -${posOpenFee.toFixed(4)}`);
       addToLog(`  平仓手续费: -${posCloseFee.toFixed(4)}`);
-      addToLog(`  该仓位后余额: ${runningBalance.toFixed(2)}`);
+
+      // 计算影响
+      const totalFees = posOpenFee + posCloseFee;
+      const netImpact = posRealizedPnl - totalFees;
+
+      addToLog(`  --- 余额计算过程 ---`);
+      addToLog(`  交易前余额: ${runningBalance.toFixed(2)}`);
+      addToLog(`  计算公式: 交易前余额 + 已实现盈亏 - 总手续费`);
+      addToLog(`  计算过程: ${runningBalance.toFixed(2)} + ${posRealizedPnl.toFixed(2)} - ${totalFees.toFixed(4)}`);
+
+      // 更新运行中的余额
+      runningBalance = runningBalance + netImpact;
+
+      addToLog(`  = ${runningBalance.toFixed(2)}`);
+      addToLog(`  交易后余额: ${runningBalance.toFixed(2)}`);
     });
-    
-    addToLog(`最终余额: ${currentBalance.toFixed(2)}`);
+
+    // 确认最终余额
+    if (Math.abs(runningBalance - currentBalance) < 0.0001) {
+      addToLog(`\n最终余额: ${currentBalance.toFixed(2)} (计算正确)`);
+    } else {
+      addToLog(`\n最终余额: ${currentBalance.toFixed(2)}`);
+      addToLog(`计算所得余额: ${runningBalance.toFixed(2)}`);
+      addToLog(`注意: 最终余额与计算所得余额有差异，可能存在其他因素影响`);
+    }
   } else {
     addToLog(`尚无平仓记录，当前余额与初始余额相同: ${currentBalance.toFixed(2)}`);
   }

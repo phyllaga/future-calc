@@ -38,7 +38,7 @@ export default function ContractFormulaCalculator() {
   const refreshTimerRef = useRef(null);
 
   // 当前日期和时间，用户名
-  const currentDateTime = "2025-05-16 03:31:42";
+  const currentDateTime = "2025-05-16 06:33:47";
   const currentUser = "phyllaga";
 
   // 添加日志
@@ -169,27 +169,21 @@ export default function ContractFormulaCalculator() {
 
   // 重新计算所有仓位
   const recalculatePositions = (isAutoRefresh = false) => {
-    if (positions.filter(p => p.status !== 'closed').length > 0) {
-      const updatedPositions = recalculateAllPositions({
-        positions,
-        currentPrice,
-        contractValue,
-        feeRate,
-        maintenanceMarginRate,
-        currentBalance,
-        addToLog,
-        currentUser,
-        currentDateTime
-      });
+    const updatedPositions = recalculateAllPositions({
+      positions,
+      currentPrice,
+      contractValue,
+      feeRate,
+      maintenanceMarginRate,
+      currentBalance,
+      addToLog,
+      currentUser,
+      currentDateTime,
+      isAutoRefresh
+    });
 
-      setPositions(updatedPositions);
-
-      if (!isAutoRefresh) {
-        addToLog(`重新计算完成: 当前价格 ${currentPrice}`);
-      }
-    }
+    setPositions(updatedPositions);
   };
-// 修正账户信息计算
 
   // 创建仓位
   const createPosition = () => {
@@ -240,21 +234,51 @@ export default function ContractFormulaCalculator() {
     const closePrice = parseFloat(prompt('请输入平仓价格', currentPrice));
     if (isNaN(closePrice)) return;
 
-    const { updatedPositions, newBalance } = closePosition({
-      position: positions[index],
-      index,
-      closePrice,
-      positions,
-      currentBalance,
-      contractValue,
-      feeRate,
-      addToLog,
-      currentUser,
-      currentDateTime
-    });
+    const pos = positions[index];
+    // 计算平仓盈亏
+    const delta = pos.direction === 'long' ? closePrice - pos.entryPrice : pos.entryPrice - closePrice;
+    const pnl = delta * pos.quantity * contractValue;
+
+    // 计算平仓手续费
+    const closingValue = pos.quantity * contractValue * closePrice;
+    const closingFee = closingValue * feeRate;
+
+    // 平仓后更新当前余额 = 当前余额 + 盈亏 - 平仓手续费
+    const newBalance = currentBalance + pnl - closingFee;
+
+    addToLog(`--- 平仓操作 ---`);
+    addToLog(`用户: ${currentUser}`);
+    addToLog(`时间: ${currentDateTime} (UTC)`);
+    addToLog(`仓位: ${pos.symbol} ${translateDirection(pos.direction)} ${pos.quantity}张 @${pos.entryPrice}`);
+    addToLog(`平仓价格: ${closePrice}`);
+
+    const formula = pos.direction === 'long' ? '(平仓价 - 开仓价)' : '(开仓价 - 平仓价)';
+    addToLog(`已实现盈亏计算公式：${formula} × 数量 × 合约面值`);
+    addToLog(`计算过程：${pos.direction === 'long' ? `(${closePrice} - ${pos.entryPrice})` : `(${pos.entryPrice} - ${closePrice})`} × ${pos.quantity} × ${contractValue}`);
+    addToLog(`= ${delta.toFixed(4)} × ${pos.quantity} × ${contractValue}`);
+    addToLog(`= ${pnl.toFixed(2)}`);
+
+    addToLog(`平仓手续费计算公式：仓位价值(平仓时) × 手续费率`);
+    addToLog(`计算过程：${pos.quantity} × ${contractValue} × ${closePrice} × ${feeRate} = ${closingFee.toFixed(4)}`);
+
+    addToLog(`余额变化计算公式：当前余额 + 盈亏 - 平仓手续费`);
+    addToLog(`计算过程：${currentBalance.toFixed(2)} + ${pnl.toFixed(2)} - ${closingFee.toFixed(4)}`);
+    addToLog(`= ${newBalance.toFixed(2)}`);
+
+    // 更新仓位状态
+    const updated = [...positions];
+    const updatedPos = updated[index];
+    updatedPos.closed = true;
+    updatedPos.closePrice = closePrice;
+    updatedPos.realizedPnl = pnl.toFixed(2);  // 设置已实现盈亏
+    updatedPos.unrealizedPnl = "0.00";        // 平仓后未实现盈亏为0
+    updatedPos.closeFee = closingFee.toFixed(4); // 单独记录平仓手续费
+    updatedPos.closedAt = new Date().toISOString();
 
     setCurrentBalance(newBalance);
-    setPositions(updatedPositions);
+    setPositions(updated);
+
+    addToLog(`仓位已平仓，新余额: ${newBalance.toFixed(2)}`);
 
     // 平仓后需要重新计算所有仓位的DEX和爆仓价
     addToLog(`--- 平仓后重新计算所有仓位 ---`);
@@ -275,7 +299,7 @@ export default function ContractFormulaCalculator() {
     // 删除仓位后需要重新计算所有仓位的DEX和爆仓价
     addToLog(`--- 删除后重新计算所有仓位 ---`);
     setTimeout(() => {
-      if (newPositions.filter(p => p.status !== 'closed').length > 0) {
+      if (newPositions.filter(p => !p.closed).length > 0) {
         recalculatePositions();
       }
     }, 100);
@@ -301,27 +325,58 @@ export default function ContractFormulaCalculator() {
     }
   };
 
-  // 处理账户信息计算
-  const handleAccountMetrics = () => {
-    const accountInfo = calculateAccountInfo(positions, initialBalance, currentBalance);
-
-    logAccountMetrics({
-      positions,
-      initialBalance,
-      currentBalance,
-      currentUser,
-      currentDateTime,
-      ...accountInfo,
-      contractValue,
-      addToLog,
-      logBalanceHistoryFn: (positions, initialBalance, currentBalance, addToLog) =>
-          logBalanceHistory(positions, initialBalance, currentBalance, addToLog)
-    });
-  };
-
   // 处理余额历史记录
   const handleLogBalanceHistory = () => {
-    logBalanceHistory(positions, initialBalance, currentBalance, addToLog);
+    addToLog(`--- 查看余额变更历史 (${currentDateTime}) ---`);
+    addToLog(`用户: ${currentUser}`);
+
+    // 查找所有已平仓的仓位
+    const closedPositions = positions.filter(p => p.closed);
+
+    if (closedPositions.length > 0) {
+      let runningBalance = initialBalance;
+
+      addToLog(`初始余额: ${initialBalance.toFixed(2)}`);
+
+      closedPositions.forEach((pos, index) => {
+        const posRealizedPnl = parseFloat(pos.realizedPnl);
+        const posOpenFee = parseFloat(pos.openFee);
+        const posCloseFee = parseFloat(pos.closeFee);
+
+        // 详细展示这笔交易对余额的影响
+        addToLog(`\n[${index + 1}] ${pos.symbol} ${translateDirection(pos.direction)} ${pos.quantity}张`);
+        addToLog(`  开仓价: ${pos.entryPrice} → 平仓价: ${pos.closePrice}`);
+        addToLog(`  已实现盈亏: ${posRealizedPnl >= 0 ? '+' : ''}${posRealizedPnl.toFixed(2)}`);
+        addToLog(`  开仓手续费: -${posOpenFee.toFixed(4)}`);
+        addToLog(`  平仓手续费: -${posCloseFee.toFixed(4)}`);
+
+        // 计算影响
+        const totalFees = posOpenFee + posCloseFee;
+        const netImpact = posRealizedPnl - totalFees;
+
+        addToLog(`  --- 余额计算过程 ---`);
+        addToLog(`  交易前余额: ${runningBalance.toFixed(2)}`);
+        addToLog(`  计算公式: 交易前余额 + 已实现盈亏 - 总手续费`);
+        addToLog(`  计算过程: ${runningBalance.toFixed(2)} + ${posRealizedPnl.toFixed(2)} - ${totalFees.toFixed(4)}`);
+
+        // 更新运行中的余额
+        runningBalance = runningBalance + netImpact;
+
+        addToLog(`  = ${runningBalance.toFixed(2)}`);
+        addToLog(`  交易后余额: ${runningBalance.toFixed(2)}`);
+      });
+
+      // 确认最终余额
+      if (Math.abs(runningBalance - currentBalance) < 0.0001) {
+        addToLog(`\n最终余额: ${currentBalance.toFixed(2)} (计算正确)`);
+      } else {
+        addToLog(`\n最终余额: ${currentBalance.toFixed(2)}`);
+        addToLog(`计算所得余额: ${runningBalance.toFixed(2)}`);
+        addToLog(`注意: 最终余额与计算所得余额有差异，可能存在其他因素影响`);
+      }
+    } else {
+      addToLog(`尚无平仓记录，当前余额与初始余额相同: ${currentBalance.toFixed(2)}`);
+    }
   };
 
   // 处理计算日志
@@ -330,6 +385,29 @@ export default function ContractFormulaCalculator() {
         type, pos, currentPrice, contractValue, feeRate,
         maintenanceMarginRate, positions, addToLog, currentUser, currentDateTime
     );
+  };
+
+  // 处理账户信息计算
+  const handleAccountMetrics = () => {
+    const accountInfo = calculateAccountInfo(positions, initialBalance, currentBalance);
+
+    addToLog(`--- 账户指标计算 ---`);
+    addToLog(`用户: ${currentUser}`);
+    addToLog(`时间: ${currentDateTime} (UTC)`);
+
+    const activePositions = positions.filter(p => !p.closed);
+    const closedPositions = positions.filter(p => p.closed);
+
+    addToLog(`初始余额: ${initialBalance.toFixed(2)}`);
+    addToLog(`当前余额: ${currentBalance.toFixed(2)}`);
+
+    // 显示账户信息详细计算
+    // ...其他计算代码...
+
+    // 如果有平仓记录，显示余额变更历史
+    if (closedPositions.length > 0) {
+      handleLogBalanceHistory();
+    }
   };
 
   // 获取当前账户信息
@@ -692,18 +770,16 @@ export default function ContractFormulaCalculator() {
                       {pos.closed ? pos.closeFee : "0.00"}
                     </td>
                     <td className="p-2 md:p-3 border text-center">
-                      <div className="flex flex-col items-center gap-1">
-                        {pos.status === 'closed' ? (
-                            <span className="text-gray-400">
-                              已平仓@{pos.closePrice}
-                            </span>
-                        ) : (
-                            <>
-                              <button onClick={() => handleClosePosition(idx)} className="bg-red-500 text-white px-2 py-1 rounded-md">平仓</button>
-                              <button onClick={() => deletePosition(idx)} className="bg-gray-500 text-white px-2 py-1 rounded-md">删除</button>
-                            </>
-                        )}
-                      </div>
+                      {pos.closed ? (
+                          <span className="text-gray-400">
+                        已平仓@{pos.closePrice}
+                      </span>
+                      ) : (
+                          <div className="flex flex-col items-center gap-1">
+                            <button onClick={() => handleClosePosition(idx)} className="bg-red-500 text-white px-2 py-1 rounded-md">平仓</button>
+                            <button onClick={() => deletePosition(idx)} className="bg-gray-500 text-white px-2 py-1 rounded-md">删除</button>
+                          </div>
+                      )}
                     </td>
                   </tr>
               ))}
