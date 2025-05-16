@@ -174,7 +174,7 @@ export const calculateAllDEX = (positions, currentBalance, contractValue) => {
   return activePositions.map(pos => {
     // 计算除本仓位外其他仓位的未实现盈亏
     const otherPositionsUnrealizedPnl = activePositions.reduce((sum, p) => {
-      if (p !== pos) { // 不同的对象引用
+      if (p.symbol !== pos.symbol) { // 不同的对象引用
         return sum + parseFloat(p.unrealizedPnl || 0);
       }
       return sum;
