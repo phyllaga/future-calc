@@ -397,7 +397,7 @@ export default function ContractFormulaCalculator() {
       // 如果有多个相同交易对的全仓仓位，先显示合并计算
       if (sameCrossPositions.length > 1) {
         addToLog(`--- ${pos.symbol} 全仓仓位合并计算 ---`);
-        logMergedPositionCalculation(sameCrossPositions, addToLog);
+        logMergedPositionCalculation(sameCrossPositions, addToLog,contractValue);
       }
     }
 
@@ -430,7 +430,7 @@ export default function ContractFormulaCalculator() {
     crossSymbols.forEach(symbol => {
       const positionsForSymbol = crossPositions.filter(p => p.symbol === symbol);
       if (positionsForSymbol.length > 1) {
-        logMergedPositionCalculation(positionsForSymbol, addToLog);
+        logMergedPositionCalculation(positionsForSymbol, addToLog,contractValue);
       }
     });
 

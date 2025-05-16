@@ -251,7 +251,7 @@ export const recalculateAllPositions = (props) => {
     crossSymbols.forEach(symbol => {
       const positionsForSymbol = crossPositions.filter(p => p.symbol === symbol);
       if (positionsForSymbol.length > 1) {
-        logMergedPositionCalculation(positionsForSymbol, addToLog);
+        logMergedPositionCalculation(positionsForSymbol, addToLog,contractValue);
       }
     });
   }

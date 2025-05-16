@@ -7,7 +7,7 @@ import { translateDirection } from './CalculationUtils';
 // 记录余额变更历史
 
 // 添加记录合并仓位计算过程的函数
-export const logMergedPositionCalculation = (positions, addToLog) => {
+export const logMergedPositionCalculation = (positions, addToLog,contractValue) => {
   const crossPositions = positions.filter(p => p.marginType === 'cross' && !p.closed);
 
   // 按交易对分组
@@ -34,13 +34,13 @@ export const logMergedPositionCalculation = (positions, addToLog) => {
 
     positions.forEach((pos, idx) => {
       if (pos.direction === 'long') {
-        addToLog(`[多仓 ${idx+1}] ${pos.quantity}张 × ${pos.entryPrice} = ${(pos.quantity * pos.entryPrice).toFixed(4)}`);
+        addToLog(`[多仓 ${idx+1}] ${pos.quantity}张 × ${pos.entryPrice} × ${contractValue} = ${(pos.quantity * pos.entryPrice * contractValue).toFixed(4)}`);
         longQuantity += parseFloat(pos.quantity);
-        longValue += parseFloat(pos.quantity) * parseFloat(pos.entryPrice);
+        longValue += parseFloat(pos.quantity) * parseFloat(pos.entryPrice) * contractValue;
       } else {
-        addToLog(`[空仓 ${idx+1}] ${pos.quantity}张 × ${pos.entryPrice} = ${(pos.quantity * pos.entryPrice).toFixed(4)}`);
+        addToLog(`[空仓 ${idx+1}] ${pos.quantity}张 × ${pos.entryPrice} × ${contractValue} = ${(pos.quantity * pos.entryPrice * contractValue).toFixed(4)}`);
         shortQuantity += parseFloat(pos.quantity);
-        shortValue += parseFloat(pos.quantity) * parseFloat(pos.entryPrice);
+        shortValue += parseFloat(pos.quantity) * parseFloat(pos.entryPrice) * contractValue;
       }
     });
 
@@ -143,11 +143,11 @@ export const logBalanceHistory = (positions, initialBalance, currentBalance, add
 };
 
 // DEX计算过程日志记录
-export const logDEXCalculation = (pos, positions, currentBalance, addToLog) => {
+export const logDEXCalculation = (pos, positions, currentBalance, addToLog,contractValue) => {
   // 先检查是否为合并仓位，如果是则先显示合并计算过程
   if (pos.isMerged) {
     addToLog(`--- 该仓位是合并仓位，先展示合并计算过程 ---`);
-    logMergedPositionCalculation([...pos.mergeInfo.originalPositions], addToLog);
+    logMergedPositionCalculation([...pos.mergeInfo.originalPositions], addToLog,contractValue);
     addToLog(`\n--- 使用合并后的仓位计算DEX ---`);
   }
 
@@ -275,7 +275,7 @@ export const logCalculation = (type, pos, currentPrice, contractValue, feeRate, 
     if (pos.closed) {
       addToLog(`该仓位已平仓，无DEX值`);
     } else {
-      logDEXCalculation(pos, positions, currentPrice, addToLog);
+      logDEXCalculation(pos, positions, currentPrice, addToLog,contractValue);
     }
   }
 };
