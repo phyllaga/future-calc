@@ -158,11 +158,8 @@ export const mergePositionsBySymbol = (positions) => {
 
 // 修改计算所有仓位的DEX函数，加入合并逻辑
 export const calculateAllDEX = (positions, currentBalance, contractValue) => {
-  // 先合并同一交易对的全仓仓位
-  const mergedPositions = mergePositionsBySymbol(positions);
-
-  // 筛选活跃仓位
-  const activePositions = mergedPositions.filter(p => !isPositionClosed(p));
+  // DEX计算需要考虑所有仓位信息，返回每个仓位对应的DEX值
+  const activePositions = positions.filter(p => p.status !== 'closed');
 
   // 计算总的维持保证金、总手续费和总逐仓保证金
   const totalMaintenanceMargin = activePositions.reduce(
