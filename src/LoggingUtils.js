@@ -5,7 +5,7 @@
 
 // 全局默认设置
 const DEFAULT_USER = 'phyllaga';
-const DEFAULT_DATETIME = '2025-05-16 08:32:34';
+const DEFAULT_DATETIME = '2025-05-16 08:36:20';
 
 // 存储日志数据
 let logs = [];
@@ -147,6 +147,35 @@ const logPositionMergeCalculation = (positions, symbol, marginType, contractValu
 const logMergedPositionCalculation = logPositionMergeCalculation;
 
 /**
+ * 通用计算日志函数 - 添加以兼容现有导入
+ * @param {string} title - 计算标题
+ * @param {string} formula - 计算公式描述
+ * @param {Array} steps - 计算步骤数组
+ * @param {any} result - 计算结果
+ */
+const logCalculation = (title, formula, steps, result) => {
+  addToLog(`--- ${title} ---`);
+  if (formula) addToLog(`计算公式: ${formula}`);
+
+  if (steps && Array.isArray(steps)) {
+    addToLog(`计算步骤:`);
+    steps.forEach((step, index) => {
+      addToLog(`  ${index + 1}. ${step}`);
+    });
+  }
+
+  if (result !== undefined) {
+    addToLog(`计算结果: ${result}`);
+  }
+
+  // 添加时间和用户信息
+  addToLog(`用户: ${currentUser}`);
+  addToLog(`时间: ${currentDateTime} (UTC)`);
+
+  return result;
+};
+
+/**
  * 记录DEX计算详情
  * @param {Object} dexParams - DEX计算参数
  * @param {number} dexParams.currentBalance - 当前余额
@@ -215,5 +244,6 @@ export {
   initLogging,
   logPositionMergeCalculation,
   logMergedPositionCalculation,  // 导出别名以兼容现有代码
+  logCalculation,                // 添加通用计算日志函数
   logDEXCalculation
 };
