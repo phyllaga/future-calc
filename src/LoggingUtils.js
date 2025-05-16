@@ -143,51 +143,71 @@ export const logBalanceHistory = (positions, initialBalance, currentBalance, add
 };
 
 // DEX计算过程日志记录
-export const logDEXCalculation = (pos, positions, currentBalance, addToLog,contractValue) => {
-  // 先检查是否为合并仓位，如果是则先显示合并计算过程
+export const logDEXCalculation = (pos, positions, currentBalance, addToLog, contractValue) => {
+  // 如果是合并仓位，先显示合并计算过程
   if (pos.isMerged) {
     addToLog(`--- 该仓位是合并仓位，先展示合并计算过程 ---`);
-    logMergedPositionCalculation([...pos.mergeInfo.originalPositions], addToLog,contractValue);
+    logMergedPositionCalculation([...pos.mergeInfo.originalPositions], addToLog, contractValue);
     addToLog(`\n--- 使用合并后的仓位计算DEX ---`);
   }
 
-  addToLog(`DEX计算公式：余额 - 维持保证金之和 - 手续费之和 - 逐仓保证金之和 + 除本交易对以外其他仓位的未实现盈亏之和`);
+  addToLog(`\nDEX计算公式：余额 - 维持保证金之和 - 手续费之和 - 逐仓保证金之和 + 除本交易对以外其他仓位的未实现盈亏之和`);
 
-  // 合并仓位后的活跃仓位列表
-  const mergedPositions = mergePositionsBySymbol(positions);
-  const activePositions = mergedPositions.filter(p => !p.closed);
+  // 获取活跃仓位
+  const activePositions = positions.filter(p => !p.closed);
 
   // 计算总的维持保证金
   const totalMaintenanceMargin = activePositions.reduce(
-      (sum, p) => sum + parseFloat(p.maintenanceMargin || 0), 0);
-  addToLog(`维持保证金之和：${totalMaintenanceMargin.toFixed(4)}`);
+      (sum, p) => sum + parseFloat(p.maintenanceMargin || 0),
+      0
+  );
+  addToLog(`\n维持保证金之和计算：`);
+  activePositions.forEach(p => {
+    addToLog(`  ${p.symbol} ${translateDirection(p.direction)} ${p.quantity}张: ${p.maintenanceMargin}`);
+  });
+  addToLog(`维持保证金总和：${totalMaintenanceMargin.toFixed(4)}`);
 
   // 计算总手续费
   const totalFees = activePositions.reduce(
-      (sum, p) => sum + parseFloat(p.openFee || 0), 0);
-  addToLog(`手续费之和：${totalFees.toFixed(4)}`);
+      (sum, p) => sum + parseFloat(p.openFee || 0),
+      0
+  );
+  addToLog(`\n手续费之和计算：`);
+  activePositions.forEach(p => {
+    addToLog(`  ${p.symbol} ${translateDirection(p.direction)} ${p.quantity}张: ${p.openFee}`);
+  });
+  addToLog(`手续费总和：${totalFees.toFixed(4)}`);
 
   // 计算总逐仓保证金
-  const totalIsolatedMargin = activePositions
-      .filter(p => p.marginType === 'isolated')
-      .reduce((sum, p) => sum + parseFloat(p.margin || 0), 0);
-  addToLog(`逐仓保证金之和：${totalIsolatedMargin.toFixed(2)}`);
+  const isolatedPositions = activePositions.filter(p => p.marginType === 'isolated');
+  const totalIsolatedMargin = isolatedPositions.reduce(
+      (sum, p) => sum + parseFloat(p.margin || 0),
+      0
+  );
+  addToLog(`\n逐仓保证金之和计算：`);
+  if (isolatedPositions.length > 0) {
+    isolatedPositions.forEach(p => {
+      addToLog(`  ${p.symbol} ${translateDirection(p.direction)} ${p.quantity}张: ${p.margin}`);
+    });
+  }
+  addToLog(`逐仓保证金总和：${totalIsolatedMargin.toFixed(4)}`);
 
   // 计算除本仓位外其他仓位的未实现盈亏
+  addToLog(`\n除本交易对外其他仓位的未实现盈亏计算：`);
   const otherPositionsUnrealizedPnl = activePositions.reduce((sum, p) => {
-    if (p !== pos) {
-      addToLog(`  ${p.symbol} ${translateDirection(p.direction)} ${p.quantity}张 未实现盈亏: ${p.unrealizedPnl}`);
+    if (p.symbol !== pos.symbol) {
+      addToLog(`  ${p.symbol} ${translateDirection(p.direction)} ${p.quantity}张: ${p.unrealizedPnl}`);
       return sum + parseFloat(p.unrealizedPnl || 0);
     }
     return sum;
   }, 0);
-  addToLog(`除本交易对以外其他仓位的未实现盈亏之和：${otherPositionsUnrealizedPnl.toFixed(2)}`);
+  addToLog(`其他仓位未实现盈亏总和：${otherPositionsUnrealizedPnl.toFixed(4)}`);
 
-  // 当前仓位的DEX
+  // 计算最终DEX
   const dex = currentBalance - totalMaintenanceMargin - totalFees - totalIsolatedMargin + otherPositionsUnrealizedPnl;
 
-  addToLog(`计算过程：${currentBalance} - ${totalMaintenanceMargin.toFixed(4)} - ${totalFees.toFixed(4)} - ${totalIsolatedMargin.toFixed(2)} + ${otherPositionsUnrealizedPnl.toFixed(2)}`);
-  addToLog(`= ${(currentBalance - totalMaintenanceMargin - totalFees - totalIsolatedMargin).toFixed(4)} + ${otherPositionsUnrealizedPnl.toFixed(2)}`);
+  addToLog(`\nDEX最终计算过程：`);
+  addToLog(`${currentBalance} - ${totalMaintenanceMargin.toFixed(4)} - ${totalFees.toFixed(4)} - ${totalIsolatedMargin.toFixed(4)} + ${otherPositionsUnrealizedPnl.toFixed(4)}`);
   addToLog(`= ${dex.toFixed(4)}`);
 
   return dex;
