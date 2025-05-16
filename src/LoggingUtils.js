@@ -2,13 +2,15 @@
  * LoggingUtils.js - 合约计算器日志处理工具
  * 最后更新: 2025-05-16
  */
+// 使用可能与原代码兼容的方式存储日志
+let logs = window.calculatorLogs || [];
+window.calculatorLogs = logs;  // 确保日志可全局访问
 
 // 全局默认设置
 const DEFAULT_USER = 'phyllaga';
 const DEFAULT_DATETIME = '2025-05-16 08:36:20';
 
 // 存储日志数据
-let logs = [];
 let currentUser = DEFAULT_USER;
 let currentDateTime = DEFAULT_DATETIME;
 
@@ -234,6 +236,8 @@ const initLogging = (username) => {
   clearLogs();
   addToLog(`日志系统初始化 - ${currentDateTime}`, true, true);
 };
+// 自动初始化
+initLogging('phyllaga');
 
 export {
   addToLog,
