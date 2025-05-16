@@ -5,6 +5,91 @@
 import { translateDirection } from './CalculationUtils';
 
 // 记录余额变更历史
+
+// 添加记录合并仓位计算过程的函数
+export const logMergedPositionCalculation = (positions, addToLog) => {
+  const crossPositions = positions.filter(p => p.marginType === 'cross' && !p.closed);
+
+  // 按交易对分组
+  const symbolGroups = {};
+  crossPositions.forEach(pos => {
+    if (!symbolGroups[pos.symbol]) {
+      symbolGroups[pos.symbol] = [];
+    }
+    symbolGroups[pos.symbol].push(pos);
+  });
+
+  // 处理每个有多个仓位的交易对
+  Object.keys(symbolGroups).forEach(symbol => {
+    const positions = symbolGroups[symbol];
+    if (positions.length <= 1) return;
+
+    addToLog(`\n--- ${symbol} 全仓仓位合并计算 ---`);
+
+    // 分离多空仓位并计算总量
+    let longQuantity = 0;
+    let longValue = 0;
+    let shortQuantity = 0;
+    let shortValue = 0;
+
+    positions.forEach((pos, idx) => {
+      if (pos.direction === 'long') {
+        addToLog(`[多仓 ${idx+1}] ${pos.quantity}张 × ${pos.entryPrice} = ${(pos.quantity * pos.entryPrice).toFixed(4)}`);
+        longQuantity += parseFloat(pos.quantity);
+        longValue += parseFloat(pos.quantity) * parseFloat(pos.entryPrice);
+      } else {
+        addToLog(`[空仓 ${idx+1}] ${pos.quantity}张 × ${pos.entryPrice} = ${(pos.quantity * pos.entryPrice).toFixed(4)}`);
+        shortQuantity += parseFloat(pos.quantity);
+        shortValue += parseFloat(pos.quantity) * parseFloat(pos.entryPrice);
+      }
+    });
+
+    addToLog(`\n多仓总量: ${longQuantity}张, 价值: ${longValue.toFixed(4)}`);
+    addToLog(`空仓总量: ${shortQuantity}张, 价值: ${shortValue.toFixed(4)}`);
+
+    // 计算净仓位
+    const netQuantity = longQuantity - shortQuantity;
+    addToLog(`净仓位: ${netQuantity}张 (${netQuantity > 0 ? "多" : "空"}方向)`);
+
+    if (Math.abs(netQuantity) < 0.00001) {
+      addToLog(`多空仓位抵消，净仓位为0，无需计算DEX和爆仓价`);
+      return;
+    }
+
+    // 确定方向和计算均价
+    const direction = netQuantity > 0 ? 'long' : 'short';
+    let avgEntryPrice;
+
+    if (direction === 'long') {
+      // 多仓占优，计算均价
+      avgEntryPrice = (longValue - shortValue) / netQuantity;
+      addToLog(`\n合并后计算公式: (多仓价值 - 空仓价值) ÷ 净多仓量`);
+      addToLog(`计算过程: (${longValue.toFixed(4)} - ${shortValue.toFixed(4)}) ÷ ${netQuantity}`);
+      addToLog(`= ${(longValue - shortValue).toFixed(4)} ÷ ${netQuantity}`);
+      addToLog(`= ${avgEntryPrice.toFixed(4)}`);
+    } else {
+      // 空仓占优，计算均价
+      avgEntryPrice = (shortValue - longValue) / Math.abs(netQuantity);
+      addToLog(`\n合并后计算公式: (空仓价值 - 多仓价值) ÷ 净空仓量`);
+      addToLog(`计算过程: (${shortValue.toFixed(4)} - ${longValue.toFixed(4)}) ÷ ${Math.abs(netQuantity)}`);
+      addToLog(`= ${(shortValue - longValue).toFixed(4)} ÷ ${Math.abs(netQuantity)}`);
+      addToLog(`= ${avgEntryPrice.toFixed(4)}`);
+    }
+
+    addToLog(`\n合并后仓位: ${Math.abs(netQuantity)}张 ${direction === 'long' ? "多单" : "空单"} @${avgEntryPrice.toFixed(4)}`);
+
+    // 计算保证金总和
+    const totalMargin = positions.reduce((sum, pos) => sum + parseFloat(pos.margin), 0);
+    addToLog(`保证金总和: ${totalMargin.toFixed(2)}`);
+
+    // 计算仓位价值和杠杆
+    const positionValue = Math.abs(netQuantity) * avgEntryPrice;
+    const leverage = positionValue / totalMargin;
+    addToLog(`仓位价值: ${positionValue.toFixed(4)}`);
+    addToLog(`实际杠杆: ${leverage.toFixed(2)}x`);
+  });
+};
+
 // 记录余额变更历史
 export const logBalanceHistory = (positions, initialBalance, currentBalance, addToLog) => {
   addToLog(`--- 余额变更历史 ---`);
@@ -59,43 +144,52 @@ export const logBalanceHistory = (positions, initialBalance, currentBalance, add
 
 // DEX计算过程日志记录
 export const logDEXCalculation = (pos, positions, currentBalance, addToLog) => {
+  // 先检查是否为合并仓位，如果是则先显示合并计算过程
+  if (pos.isMerged) {
+    addToLog(`--- 该仓位是合并仓位，先展示合并计算过程 ---`);
+    logMergedPositionCalculation([...pos.mergeInfo.originalPositions], addToLog);
+    addToLog(`\n--- 使用合并后的仓位计算DEX ---`);
+  }
+
   addToLog(`DEX计算公式：余额 - 维持保证金之和 - 手续费之和 - 逐仓保证金之和 + 除本交易对以外其他仓位的未实现盈亏之和`);
-  
-  const activePositions = positions.filter(p => !p.closed);
-  
+
+  // 合并仓位后的活跃仓位列表
+  const mergedPositions = mergePositionsBySymbol(positions);
+  const activePositions = mergedPositions.filter(p => !p.closed);
+
   // 计算总的维持保证金
   const totalMaintenanceMargin = activePositions.reduce(
-    (sum, p) => sum + parseFloat(p.maintenanceMargin || 0), 0);
+      (sum, p) => sum + parseFloat(p.maintenanceMargin || 0), 0);
   addToLog(`维持保证金之和：${totalMaintenanceMargin.toFixed(4)}`);
-  
+
   // 计算总手续费
   const totalFees = activePositions.reduce(
-    (sum, p) => sum + parseFloat(p.openFee || 0), 0);
+      (sum, p) => sum + parseFloat(p.openFee || 0), 0);
   addToLog(`手续费之和：${totalFees.toFixed(4)}`);
-  
+
   // 计算总逐仓保证金
   const totalIsolatedMargin = activePositions
-    .filter(p => p.marginType === 'isolated')
-    .reduce((sum, p) => sum + parseFloat(p.margin || 0), 0);
+      .filter(p => p.marginType === 'isolated')
+      .reduce((sum, p) => sum + parseFloat(p.margin || 0), 0);
   addToLog(`逐仓保证金之和：${totalIsolatedMargin.toFixed(2)}`);
-  
+
   // 计算除本仓位外其他仓位的未实现盈亏
   const otherPositionsUnrealizedPnl = activePositions.reduce((sum, p) => {
-    if (p !== pos) { 
+    if (p !== pos) {
       addToLog(`  ${p.symbol} ${translateDirection(p.direction)} ${p.quantity}张 未实现盈亏: ${p.unrealizedPnl}`);
       return sum + parseFloat(p.unrealizedPnl || 0);
     }
     return sum;
   }, 0);
   addToLog(`除本交易对以外其他仓位的未实现盈亏之和：${otherPositionsUnrealizedPnl.toFixed(2)}`);
-  
+
   // 当前仓位的DEX
   const dex = currentBalance - totalMaintenanceMargin - totalFees - totalIsolatedMargin + otherPositionsUnrealizedPnl;
-  
+
   addToLog(`计算过程：${currentBalance} - ${totalMaintenanceMargin.toFixed(4)} - ${totalFees.toFixed(4)} - ${totalIsolatedMargin.toFixed(2)} + ${otherPositionsUnrealizedPnl.toFixed(2)}`);
   addToLog(`= ${(currentBalance - totalMaintenanceMargin - totalFees - totalIsolatedMargin).toFixed(4)} + ${otherPositionsUnrealizedPnl.toFixed(2)}`);
   addToLog(`= ${dex.toFixed(4)}`);
-  
+
   return dex;
 };
 

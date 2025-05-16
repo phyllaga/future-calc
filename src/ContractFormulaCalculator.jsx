@@ -1,8 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import contractsData from './ContractsData.json';
-import { calculateAccountInfo, translateDirection, translateMarginType } from './CalculationUtils';
+import {
+  calculateAccountInfo,
+  translateDirection,
+  translateMarginType,
+  mergePositionsBySymbol,
+  isPositionClosed
+} from './CalculationUtils';
 import { createNewPosition, closePosition, recalculateAllPositions } from './PositionHandlers';
-import { logBalanceHistory, logCalculation, logAccountMetrics } from './LoggingUtils';
+import { logBalanceHistory, logCalculation, logAccountMetrics, logMergedPositionCalculation } from './LoggingUtils';
 
 /**
  * 合约计算器主组件
@@ -38,7 +44,7 @@ export default function ContractFormulaCalculator() {
   const refreshTimerRef = useRef(null);
 
   // 当前日期和时间，用户名
-  const currentDateTime = "2025-05-16 06:33:47";
+  const currentDateTime = "2025-05-16 07:44:03";
   const currentUser = "phyllaga";
 
   // 添加日志
@@ -299,7 +305,7 @@ export default function ContractFormulaCalculator() {
     // 删除仓位后需要重新计算所有仓位的DEX和爆仓价
     addToLog(`--- 删除后重新计算所有仓位 ---`);
     setTimeout(() => {
-      if (newPositions.filter(p => !p.closed).length > 0) {
+      if (newPositions.filter(p => !isPositionClosed(p)).length > 0) {
         recalculatePositions();
       }
     }, 100);
@@ -331,7 +337,7 @@ export default function ContractFormulaCalculator() {
     addToLog(`用户: ${currentUser}`);
 
     // 查找所有已平仓的仓位
-    const closedPositions = positions.filter(p => p.closed);
+    const closedPositions = positions.filter(p => isPositionClosed(p));
 
     if (closedPositions.length > 0) {
       let runningBalance = initialBalance;
@@ -381,6 +387,21 @@ export default function ContractFormulaCalculator() {
 
   // 处理计算日志
   const handleLogCalculation = (type, pos) => {
+    // 如果是DEX或爆仓价计算，且是全仓仓位，先检查是否需要合并计算
+    if ((type === 'dex' || type === 'liq') && pos.marginType === 'cross') {
+      // 获取相同交易对的全仓仓位
+      const sameCrossPositions = positions.filter(
+          p => p.marginType === 'cross' && p.symbol === pos.symbol && !isPositionClosed(p)
+      );
+
+      // 如果有多个相同交易对的全仓仓位，先显示合并计算
+      if (sameCrossPositions.length > 1) {
+        addToLog(`--- ${pos.symbol} 全仓仓位合并计算 ---`);
+        logMergedPositionCalculation(sameCrossPositions, addToLog);
+      }
+    }
+
+    // 常规计算日志
     logCalculation(
         type, pos, currentPrice, contractValue, feeRate,
         maintenanceMarginRate, positions, addToLog, currentUser, currentDateTime
@@ -395,14 +416,27 @@ export default function ContractFormulaCalculator() {
     addToLog(`用户: ${currentUser}`);
     addToLog(`时间: ${currentDateTime} (UTC)`);
 
-    const activePositions = positions.filter(p => !p.closed);
-    const closedPositions = positions.filter(p => p.closed);
+    const activePositions = positions.filter(p => !isPositionClosed(p));
+    const closedPositions = positions.filter(p => isPositionClosed(p));
 
     addToLog(`初始余额: ${initialBalance.toFixed(2)}`);
     addToLog(`当前余额: ${currentBalance.toFixed(2)}`);
 
+    // 全仓仓位合并计算
+    const crossPositions = activePositions.filter(p => p.marginType === 'cross');
+    const crossSymbols = [...new Set(crossPositions.map(p => p.symbol))];
+
+    // 对每个有多个全仓仓位的交易对显示合并计算过程
+    crossSymbols.forEach(symbol => {
+      const positionsForSymbol = crossPositions.filter(p => p.symbol === symbol);
+      if (positionsForSymbol.length > 1) {
+        logMergedPositionCalculation(positionsForSymbol, addToLog);
+      }
+    });
+
     // 显示账户信息详细计算
-    // ...其他计算代码...
+    addToLog(`全仓仓位数: ${activePositions.filter(p => p.marginType === 'cross').length}`);
+    addToLog(`逐仓仓位数: ${activePositions.filter(p => p.marginType === 'isolated').length}`);
 
     // 如果有平仓记录，显示余额变更历史
     if (closedPositions.length > 0) {
@@ -703,7 +737,7 @@ export default function ContractFormulaCalculator() {
               </thead>
               <tbody>
               {positions.map((pos, idx) => (
-                  <tr key={idx} className={pos.closed ? "bg-gray-100" : ""}>
+                  <tr key={idx} className={isPositionClosed(pos) ? "bg-gray-100" : ""}>
                     <td className="p-2 md:p-3 border text-center">{pos.symbol}</td>
                     <td className="p-2 md:p-3 border text-center">{translateDirection(pos.direction)}</td>
                     <td className="p-2 md:p-3 border text-center">{translateMarginType(pos.marginType)}</td>
@@ -718,9 +752,14 @@ export default function ContractFormulaCalculator() {
                     </td>
                     <td
                         className="p-2 md:p-3 border text-blue-500 text-center cursor-pointer hover:underline"
-                        onClick={() => pos.closed ? addToLog('该仓位已平仓，无爆仓价格') : handleLogCalculation('liq', pos)}
+                        onClick={() => isPositionClosed(pos) ? addToLog('该仓位已平仓，无爆仓价格') : handleLogCalculation('liq', pos)}
                     >
-                      {pos.closed ? "-" : pos.liquidationPrice}
+                      {isPositionClosed(pos) ? "-" : (
+                          <>
+                            {pos.liquidationPrice}
+                            {pos.isMerged && <span className="text-xs text-yellow-500 ml-1">(合并)</span>}
+                          </>
+                      )}
                     </td>
                     <td
                         className="p-2 md:p-3 border text-blue-500 text-center cursor-pointer hover:underline"
@@ -730,9 +769,14 @@ export default function ContractFormulaCalculator() {
                     </td>
                     <td
                         className="p-2 md:p-3 border text-blue-500 text-center cursor-pointer hover:underline"
-                        onClick={() => pos.closed ? addToLog('该仓位已平仓，无DEX值') : handleLogCalculation('dex', pos)}
+                        onClick={() => isPositionClosed(pos) ? addToLog('该仓位已平仓，无DEX值') : handleLogCalculation('dex', pos)}
                     >
-                      {pos.closed ? "-" : pos.dex}
+                      {isPositionClosed(pos) ? "-" : (
+                          <>
+                            {pos.dex}
+                            {pos.isMerged && <span className="text-xs text-yellow-500 ml-1">(合并)</span>}
+                          </>
+                      )}
                     </td>
                     <td
                         className="p-2 md:p-3 border text-blue-500 text-center cursor-pointer hover:underline"
@@ -744,7 +788,7 @@ export default function ContractFormulaCalculator() {
                         className="p-2 md:p-3 border text-center cursor-pointer text-blue-500 hover:underline"
                         onClick={() => handleLogCalculation('unrealizedPnl', pos)}
                     >
-                      {pos.closed ? "0.00" : pos.unrealizedPnl}
+                      {isPositionClosed(pos) ? "0.00" : pos.unrealizedPnl}
                     </td>
                     <td className="p-2 md:p-3 border text-center">
                       {pos.realizedPnl ? (
@@ -767,10 +811,10 @@ export default function ContractFormulaCalculator() {
                         className="p-2 md:p-3 border text-center cursor-pointer text-blue-500 hover:underline"
                         onClick={() => handleLogCalculation('closeFee', pos)}
                     >
-                      {pos.closed ? pos.closeFee : "0.00"}
+                      {isPositionClosed(pos) ? pos.closeFee : "0.00"}
                     </td>
                     <td className="p-2 md:p-3 border text-center">
-                      {pos.closed ? (
+                      {isPositionClosed(pos) ? (
                           <span className="text-gray-400">
                         已平仓@{pos.closePrice}
                       </span>
