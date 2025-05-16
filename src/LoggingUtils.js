@@ -1,11 +1,11 @@
 /**
- * loggingUtils.js - 合约计算器日志处理工具
+ * LoggingUtils.js - 合约计算器日志处理工具
  * 最后更新: 2025-05-16
  */
 
 // 全局默认设置
 const DEFAULT_USER = 'phyllaga';
-const DEFAULT_DATETIME = '2025-05-16 08:24:27';
+const DEFAULT_DATETIME = '2025-05-16 08:32:34';
 
 // 存储日志数据
 let logs = [];
@@ -59,6 +59,7 @@ const addToLog = (message, includeTimestamp = true, includeUser = true) => {
 
 /**
  * 添加合约计算日志，特别针对仓位合并计算
+ * 注意：此函数与原logMergedPositionCalculation功能相同
  * @param {Array} positions - 仓位数组
  * @param {string} symbol - 交易对符号
  * @param {string} marginType - 保证金类型 ('cross' 或 'isolated')
@@ -82,11 +83,11 @@ const logPositionMergeCalculation = (positions, symbol, marginType, contractValu
     const posValue = parseFloat(pos.quantity) * contractValue * parseFloat(pos.entryPrice);
 
     if (pos.direction === 'long') {
-      addToLog(`[多仓 ${idx+1}] ${pos.quantity}张 × ${contractValue} = ${(pos.quantity * contractValue).toFixed(4)}`);
+      addToLog(`[多仓 ${idx+1}] ${pos.quantity}张 × ${pos.entryPrice} = ${(pos.quantity * pos.entryPrice).toFixed(4)}`);
       longQuantity += parseFloat(pos.quantity);
       longValue += posValue;
     } else {
-      addToLog(`[空仓 ${idx+1}] ${pos.quantity}张 × ${contractValue} = ${(pos.quantity * contractValue).toFixed(4)}`);
+      addToLog(`[空仓 ${idx+1}] ${pos.quantity}张 × ${pos.entryPrice} = ${(pos.quantity * pos.entryPrice).toFixed(4)}`);
       shortQuantity += parseFloat(pos.quantity);
       shortValue += posValue;
     }
@@ -108,16 +109,16 @@ const logPositionMergeCalculation = (positions, symbol, marginType, contractValu
   if (netQuantity > 0) {
     if (netDirection === 'long') {
       averagePrice = (longValue - shortValue) / (netQuantity * contractValue);
-      addToLog(`合并后计算公式: (多仓价值 - 空仓价值) ÷ 净多仓量 ÷ 合约面值`);
-      addToLog(`计算过程: (${longValue.toFixed(4)} - ${shortValue.toFixed(4)}) ÷ ${netQuantity} ÷ ${contractValue}`);
-      addToLog(`= ${(longValue - shortValue).toFixed(4)} ÷ ${netQuantity} ÷ ${contractValue}`);
-      addToLog(`= ${((longValue - shortValue) / netQuantity / contractValue).toFixed(4)}`);
+      addToLog(`合并后计算公式: (多仓价值 - 空仓价值) ÷ 净多仓量`);
+      addToLog(`计算过程: (${longValue.toFixed(4)} - ${shortValue.toFixed(4)}) ÷ ${netQuantity}`);
+      addToLog(`= ${(longValue - shortValue).toFixed(4)} ÷ ${netQuantity}`);
+      addToLog(`= ${((longValue - shortValue) / netQuantity).toFixed(4)}`);
     } else {
       averagePrice = (shortValue - longValue) / (netQuantity * contractValue);
-      addToLog(`合并后计算公式: (空仓价值 - 多仓价值) ÷ 净空仓量 ÷ 合约面值`);
-      addToLog(`计算过程: (${shortValue.toFixed(4)} - ${longValue.toFixed(4)}) ÷ ${netQuantity} ÷ ${contractValue}`);
-      addToLog(`= ${(shortValue - longValue).toFixed(4)} ÷ ${netQuantity} ÷ ${contractValue}`);
-      addToLog(`= ${((shortValue - longValue) / netQuantity / contractValue).toFixed(4)}`);
+      addToLog(`合并后计算公式: (空仓价值 - 多仓价值) ÷ 净空仓量`);
+      addToLog(`计算过程: (${shortValue.toFixed(4)} - ${longValue.toFixed(4)}) ÷ ${netQuantity}`);
+      addToLog(`= ${(shortValue - longValue).toFixed(4)} ÷ ${netQuantity}`);
+      addToLog(`= ${((shortValue - longValue) / netQuantity).toFixed(4)}`);
     }
   }
 
@@ -129,16 +130,21 @@ const logPositionMergeCalculation = (positions, symbol, marginType, contractValu
   addToLog("");
   addToLog(`合并后仓位: ${netQuantity}张 ${netDirection === 'long' ? '多单' : '空单'} @${averagePrice.toFixed(4)}`);
   addToLog(`保证金总和: ${totalMargin.toFixed(2)}`);
-  addToLog(`仓位价值: ${netPositionValue.toFixed(4)} (${netQuantity}张 × ${contractValue} × ${averagePrice.toFixed(4)})`);
+  addToLog(`仓位价值: ${netPositionValue.toFixed(4)}`);
 
   // 计算实际杠杆
   const actualLeverage = netPositionValue / totalMargin;
-  addToLog(`实际杠杆: ${actualLeverage.toFixed(2)}x (仓位价值 ÷ 保证金总和 = ${netPositionValue.toFixed(4)} ÷ ${totalMargin.toFixed(2)})`);
+  addToLog(`实际杠杆: ${actualLeverage.toFixed(2)}x`);
 
   // 添加时间和用户信息
   addToLog(`用户: ${currentUser}`);
   addToLog(`时间: ${currentDateTime} (UTC)`);
 };
+
+/**
+ * 兼容旧代码的别名 - 确保不破坏现有导入
+ */
+const logMergedPositionCalculation = logPositionMergeCalculation;
 
 /**
  * 记录DEX计算详情
@@ -208,5 +214,6 @@ export {
   clearLogs,
   initLogging,
   logPositionMergeCalculation,
+  logMergedPositionCalculation,  // 导出别名以兼容现有代码
   logDEXCalculation
 };
