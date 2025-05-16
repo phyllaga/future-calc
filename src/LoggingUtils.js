@@ -297,6 +297,7 @@ export const logCalculation = (type, pos, currentPrice, contractValue, feeRate, 
       addToLog(`该仓位已平仓，无DEX值`);
     } else {
       logDEXCalculation(pos, positions, currentBalance, addToLog,contractValue);
+
     }
   }
 };
