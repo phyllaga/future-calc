@@ -404,7 +404,7 @@ export default function ContractFormulaCalculator() {
     // 常规计算日志
     logCalculation(
         type, pos, currentPrice, contractValue, feeRate,
-        maintenanceMarginRate, positions, addToLog, currentUser, currentDateTime
+        maintenanceMarginRate, positions, addToLog, currentUser, currentDateTime,currentBalance
     );
   };
 

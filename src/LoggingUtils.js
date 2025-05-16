@@ -214,7 +214,7 @@ export const logDEXCalculation = (pos, positions, currentBalance, addToLog, cont
 };
 
 // 记录各种计算
-export const logCalculation = (type, pos, currentPrice, contractValue, feeRate, maintenanceMarginRate, positions, addToLog, currentUser, currentDateTime) => {
+export const logCalculation = (type, pos, currentPrice, contractValue, feeRate, maintenanceMarginRate, positions, addToLog, currentUser, currentDateTime,currentBalance) => {
   addToLog(`用户: ${currentUser}`);
   addToLog(`时间: ${currentDateTime} (UTC)`);
 
@@ -296,7 +296,7 @@ export const logCalculation = (type, pos, currentPrice, contractValue, feeRate, 
     if (pos.closed) {
       addToLog(`该仓位已平仓，无DEX值`);
     } else {
-      logDEXCalculation(pos, positions, currentPrice, addToLog,contractValue);
+      logDEXCalculation(pos, positions, currentBalance, addToLog,contractValue);
     }
   }
 };
