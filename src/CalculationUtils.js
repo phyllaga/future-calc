@@ -51,7 +51,32 @@ export const calculateAllDEX = (positions, currentBalance, contractValue) => {
     };
   });
 };
+// Add this function to CalculationUtils.js
+export const calculatePositionValues = (pos, currentPrice, contractValue, feeRate, maintenanceMarginRate) => {
+  // Update position value based on current price
+  const positionValue = pos.quantity * contractValue * currentPrice;
 
+  // Calculate margin based on position value and leverage
+  const margin = positionValue / pos.leverage;
+
+  // Calculate maintenance margin
+  const maintenanceMargin = pos.quantity * currentPrice * contractValue * maintenanceMarginRate;
+
+  // Calculate unrealized PnL
+  const delta = pos.direction === 'long'
+      ? currentPrice - pos.entryPrice
+      : pos.entryPrice - currentPrice;
+  const unrealizedPnl = (delta * pos.quantity * contractValue).toFixed(2);
+
+  return {
+    ...pos,
+    currentPrice,
+    positionValue: positionValue.toFixed(4),
+    margin: margin.toFixed(2),
+    maintenanceMargin: maintenanceMargin.toFixed(4),
+    unrealizedPnl
+  };
+};
 // 计算爆仓价，基于最新的DEX值
 export const calculateLiquidationPrices = (positionsWithDex, contractValue) => {
   return positionsWithDex.map(pos => {
