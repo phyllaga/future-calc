@@ -275,7 +275,7 @@ export default function ContractFormulaCalculator() {
     // 删除仓位后需要重新计算所有仓位的DEX和爆仓价
     addToLog(`--- 删除后重新计算所有仓位 ---`);
     setTimeout(() => {
-      if (newPositions.filter(p => !p.closed).length > 0) {
+      if (newPositions.filter(p => p.status !== 'closed').length > 0) {
         recalculatePositions();
       }
     }, 100);
