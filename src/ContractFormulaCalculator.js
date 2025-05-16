@@ -1000,17 +1000,16 @@ export default function ContractFormulaCalculator() {
 
   return (
     <>
-      {/* 顶部基础参数设置区 */}
-      <div className="container mx-auto max-w-[1680px] p-4">
+     <div className="w-full p-6">
   {/* 顶部基础参数设置区 */}
-  <div className="grid grid-cols-12 gap-4 bg-gray-100 p-4 rounded mb-4">
+  <div className="grid grid-cols-12 gap-6 bg-gray-100 p-5 rounded-lg mb-6">
     <div className="col-span-2">
-      <label className="block mb-1">交易对</label>
+      <label className="block mb-2 text-md">交易对</label>
       <div className="flex gap-2">
         <select
           value={symbol}
           onChange={handleContractChange}
-          className="w-full p-2 border rounded"
+          className="w-full p-3 border rounded-md"
           disabled={isLoading}
         >
           <option value="">选择交易对</option>
@@ -1022,7 +1021,7 @@ export default function ContractFormulaCalculator() {
         </select>
         <button 
           onClick={refreshPrice} 
-          className="bg-gray-300 px-2 py-1 rounded hover:bg-gray-400"
+          className="bg-gray-300 px-3 py-2 rounded-md hover:bg-gray-400"
           disabled={isLoading}
         >
           {isLoading ? "加载中..." : "刷新"}
@@ -1030,25 +1029,25 @@ export default function ContractFormulaCalculator() {
       </div>
     </div>
     <div className="col-span-2">
-      <label className="block mb-1">当前价格</label>
-      <div className="flex flex-col gap-1">
+      <label className="block mb-2 text-md">当前价格</label>
+      <div className="flex flex-col gap-2">
         <div className="flex gap-2">
           <input 
             type="number" 
             value={currentPrice} 
             onChange={e => setCurrentPrice(parseFloat(e.target.value))} 
-            className="w-full p-2 border rounded" 
+            className="w-full p-3 border rounded-md" 
             disabled={autoRefresh}
           />
           <button 
             onClick={refreshPrice} 
-            className="bg-gray-300 px-2 py-1 rounded hover:bg-gray-400"
+            className="bg-gray-300 px-3 py-2 rounded-md hover:bg-gray-400"
             disabled={autoRefresh || isLoading}
           >
             刷新价格
           </button>
         </div>
-        <div className="flex items-center gap-2 text-xs">
+        <div className="flex items-center gap-2 text-sm">
           <label className="flex items-center cursor-pointer">
             <input 
               type="checkbox" 
@@ -1067,59 +1066,59 @@ export default function ContractFormulaCalculator() {
       </div>
     </div>
     <div className="col-span-2">
-      <label className="block mb-1">维持保证金率</label>
+      <label className="block mb-2 text-md">维持保证金率</label>
       <input 
         type="number" 
         value={maintenanceMarginRate} 
         onChange={e => setMaintenanceMarginRate(parseFloat(e.target.value))} 
-        className="w-full p-2 border rounded"
+        className="w-full p-3 border rounded-md"
         onClick={() => addToLog(`维持保证金率设置为 ${maintenanceMarginRate} (${maintenanceMarginRate*100}%)`)}
       />
     </div>
     <div className="col-span-2">
-      <label className="block mb-1">合约面值</label>
+      <label className="block mb-2 text-md">合约面值</label>
       <input 
         type="number" 
         value={contractValue} 
         onChange={e => setContractValue(parseFloat(e.target.value))} 
-        className="w-full p-2 border rounded" 
+        className="w-full p-3 border rounded-md" 
         placeholder="0.0001"
         onClick={() => addToLog(`合约面值设置为 ${contractValue}`)}
       />
     </div>
     <div className="col-span-2">
-      <label className="block mb-1">初始余额</label>
+      <label className="block mb-2 text-md">初始余额</label>
       <input 
         type="number" 
         value={initialBalance} 
         onChange={e => setInitialBalance(parseFloat(e.target.value))} 
-        className="w-full p-2 border rounded"
+        className="w-full p-3 border rounded-md"
         onClick={() => addToLog(`初始余额设置为 ${initialBalance}`)}
       />
     </div>
     <div className="col-span-2">
-      <label className="block mb-1">手续费率</label>
+      <label className="block mb-2 text-md">手续费率</label>
       <input 
         type="number" 
         value={feeRate} 
         onChange={e => setFeeRate(parseFloat(e.target.value))} 
-        className="w-full p-2 border rounded"
+        className="w-full p-3 border rounded-md"
         onClick={() => addToLog(`手续费率设置为 ${feeRate} (${feeRate*100}%)`)}
       />
     </div>
-    <div className="col-span-12 mt-4 flex space-x-4">
+    <div className="col-span-12 mt-4 flex space-x-6">
       <button 
         onClick={() => {
           addToLog(`--- 触发参数更改重新计算 ---`);
           recalculateAllPositions();
         }} 
-        className="bg-blue-500 text-white px-6 py-2 rounded"
+        className="bg-blue-500 text-white px-8 py-3 rounded-md text-lg font-medium"
       >
         重新计算
       </button>
       <button 
         onClick={resetBalance} 
-        className="bg-yellow-500 text-white px-6 py-2 rounded"
+        className="bg-yellow-500 text-white px-8 py-3 rounded-md text-lg font-medium"
       >
         重置余额
       </button>
@@ -1127,20 +1126,30 @@ export default function ContractFormulaCalculator() {
   </div>
 
   {/* 仓位创建区 */}
-  <div className="grid grid-cols-12 gap-4 bg-white p-4 border rounded mb-4">
+  <div className="grid grid-cols-12 gap-6 bg-white p-5 border rounded-lg mb-6 shadow-sm">
     <div className="col-span-12">
-      <h3 className="text-lg font-bold mb-2">新增仓位</h3>
+      <h3 className="text-xl font-bold mb-3">新增仓位</h3>
     </div>
     <div className="col-span-2">
-      <label className="block mb-1">开仓价格</label>
-      <input type="number" value={entryPrice} onChange={e => setEntryPrice(e.target.value)} className="w-full p-2 border rounded" />
+      <label className="block mb-2 text-md">开仓价格</label>
+      <input 
+        type="number" 
+        value={entryPrice} 
+        onChange={e => setEntryPrice(e.target.value)} 
+        className="w-full p-3 border rounded-md" 
+      />
     </div>
     <div className="col-span-2">
-      <label className="block mb-1">张数</label>
-      <input type="number" value={quantity} onChange={e => setQuantity(e.target.value)} className="w-full p-2 border rounded" />
+      <label className="block mb-2 text-md">张数</label>
+      <input 
+        type="number" 
+        value={quantity} 
+        onChange={e => setQuantity(e.target.value)} 
+        className="w-full p-3 border rounded-md" 
+      />
     </div>
     <div className="col-span-2">
-      <label className="block mb-1">杠杆倍数</label>
+      <label className="block mb-2 text-md">杠杆倍数</label>
       <input 
         type="number" 
         value={leverage} 
@@ -1148,32 +1157,32 @@ export default function ContractFormulaCalculator() {
           setLeverage(parseFloat(e.target.value));
           addToLog(`杠杆倍数设置为 ${e.target.value}x`);
         }} 
-        className="w-full p-2 border rounded" 
+        className="w-full p-3 border rounded-md" 
       />
     </div>
     <div className="col-span-2">
-      <label className="block mb-1">方向</label>
+      <label className="block mb-2 text-md">方向</label>
       <select 
         value={direction} 
         onChange={e => {
           setDirection(e.target.value);
           addToLog(`交易方向设置为 ${e.target.value === 'long' ? '多单' : '空单'}`);
         }} 
-        className="w-full p-2 border rounded"
+        className="w-full p-3 border rounded-md"
       >
         <option value="long">多单</option>
         <option value="short">空单</option>
       </select>
     </div>
     <div className="col-span-2">
-      <label className="block mb-1">仓位类型</label>
+      <label className="block mb-2 text-md">仓位类型</label>
       <select 
         value={marginType} 
         onChange={e => {
           setMarginType(e.target.value);
           addToLog(`保证金类型设置为 ${e.target.value === 'cross' ? '全仓' : '逐仓'}`);
         }} 
-        className="w-full p-2 border rounded"
+        className="w-full p-3 border rounded-md"
       >
         <option value="cross">全仓</option>
         <option value="isolated">逐仓</option>
@@ -1182,7 +1191,7 @@ export default function ContractFormulaCalculator() {
     <div className="col-span-2 flex items-end">
       <button 
         onClick={createPosition} 
-        className="bg-green-600 text-white px-6 py-2 rounded w-full"
+        className="bg-green-600 text-white px-6 py-3 rounded-md w-full text-lg font-medium"
         disabled={!entryPrice || !quantity}
       >
         创建持仓
@@ -1191,144 +1200,144 @@ export default function ContractFormulaCalculator() {
   </div>
   
   {/* 账户信息和持仓列表 */}
-  <div className="grid grid-cols-12 gap-4">
-    <div className="col-span-3 bg-white p-4 border rounded mb-4 h-fit">
-      <h3 className="text-lg font-bold mb-2">账户信息</h3>
-      <div className="grid grid-cols-1 gap-2 text-sm">
-        <div className="cursor-pointer" onClick={() => addToLog(`初始余额 = ${initialBalance.toFixed(2)}`)}>
+  <div className="grid grid-cols-12 gap-6">
+    <div className="col-span-3 bg-white p-5 border rounded-lg shadow-sm h-fit">
+      <h3 className="text-xl font-bold mb-3">账户信息</h3>
+      <div className="grid grid-cols-1 gap-3">
+        <div className="cursor-pointer py-1 hover:bg-gray-50" onClick={() => addToLog(`初始余额 = ${initialBalance.toFixed(2)}`)}>
           初始余额：<span className="text-blue-500 hover:underline">{initialBalance.toFixed(2)}</span>
         </div>
-        <div className="cursor-pointer" onClick={() => addToLog(`当前余额 = ${currentBalance.toFixed(2)}`)}>
+        <div className="cursor-pointer py-1 hover:bg-gray-50" onClick={() => addToLog(`当前余额 = ${currentBalance.toFixed(2)}`)}>
           当前余额：<span className="text-blue-500 hover:underline font-bold">{currentBalance.toFixed(2)}</span>
         </div>
-        <div className="cursor-pointer" onClick={() => addToLog(`逐仓保证金 = ${totalMarginIsolated.toFixed(2)}`)}>
+        <div className="cursor-pointer py-1 hover:bg-gray-50" onClick={() => addToLog(`逐仓保证金 = ${totalMarginIsolated.toFixed(2)}`)}>
           逐仓保证金占用：<span className="text-blue-500 hover:underline">{totalMarginIsolated.toFixed(2)}</span>
         </div>
-        <div className="cursor-pointer" onClick={() => addToLog(`全仓保证金 = ${totalMarginCross.toFixed(2)}`)}>
+        <div className="cursor-pointer py-1 hover:bg-gray-50" onClick={() => addToLog(`全仓保证金 = ${totalMarginCross.toFixed(2)}`)}>
           全仓保证金占用：<span className="text-blue-500 hover:underline">{totalMarginCross.toFixed(2)}</span>
         </div>
-        <div className="cursor-pointer" onClick={() => {
+        <div className="cursor-pointer py-1 hover:bg-gray-50" onClick={() => {
           addToLog(`总保证金占用计算公式：全仓保证金 + 逐仓保证金`);
           addToLog(`计算过程：${totalMarginCross.toFixed(2)} + ${totalMarginIsolated.toFixed(2)} = ${totalMargin.toFixed(2)}`);
         }}>
           总保证金占用：<span className="text-blue-500 hover:underline">{totalMargin.toFixed(2)}</span>
         </div>
-        <div className="cursor-pointer" onClick={() => {
+        <div className="cursor-pointer py-1 hover:bg-gray-50" onClick={() => {
           addToLog(`可用资金计算公式：当前余额 - 总保证金占用`);
           addToLog(`计算过程：${currentBalance.toFixed(2)} - ${totalMargin.toFixed(2)} = ${availableBalance.toFixed(2)}`);
         }}>
           可用资金：<span className="text-blue-500 hover:underline">{availableBalance.toFixed(2)}</span>
         </div>
-        <div className="cursor-pointer" onClick={() => addToLog(`开仓手续费总和 = ${totalOpenFee.toFixed(4)}`)}>
+        <div className="cursor-pointer py-1 hover:bg-gray-50" onClick={() => addToLog(`开仓手续费总和 = ${totalOpenFee.toFixed(4)}`)}>
           开仓手续费总和：<span className="text-blue-500 hover:underline">{totalOpenFee.toFixed(4)}</span>
         </div>
-        <div className="cursor-pointer" onClick={() => addToLog(`平仓手续费总和 = ${totalCloseFee.toFixed(4)}`)}>
+        <div className="cursor-pointer py-1 hover:bg-gray-50" onClick={() => addToLog(`平仓手续费总和 = ${totalCloseFee.toFixed(4)}`)}>
           平仓手续费总和：<span className="text-blue-500 hover:underline">{totalCloseFee.toFixed(4)}</span>
         </div>
-        <div className="cursor-pointer" onClick={() => {
+        <div className="cursor-pointer py-1 hover:bg-gray-50" onClick={() => {
           addToLog(`手续费总和计算公式：开仓手续费总和 + 平仓手续费总和`);
           addToLog(`计算过程：${totalOpenFee.toFixed(4)} + ${totalCloseFee.toFixed(4)} = ${totalFee.toFixed(4)}`);
         }}>
           手续费总和：<span className="text-blue-500 hover:underline">{totalFee.toFixed(4)}</span>
         </div>
-        <div className="cursor-pointer" onClick={() => addToLog(`未实现盈亏总和 = ${totalUnrealizedPnl.toFixed(2)}`)}>
+        <div className="cursor-pointer py-1 hover:bg-gray-50" onClick={() => addToLog(`未实现盈亏总和 = ${totalUnrealizedPnl.toFixed(2)}`)}>
           未实现盈亏总和：<span className="text-blue-500 hover:underline">{totalUnrealizedPnl.toFixed(2)}</span>
         </div>
-        <div className="cursor-pointer" onClick={() => addToLog(`已实现盈亏总和 = ${totalRealizedPnl.toFixed(2)}`)}>
+        <div className="cursor-pointer py-1 hover:bg-gray-50" onClick={() => addToLog(`已实现盈亏总和 = ${totalRealizedPnl.toFixed(2)}`)}>
           已实现盈亏总和：<span className="text-blue-500 hover:underline">{totalRealizedPnl.toFixed(2)}</span>
         </div>
-        <div className="text-right mt-2">
-          <span className="text-xs text-gray-500">当前用户: {currentUser}</span><br/>
-          <span className="text-xs text-gray-500">当前时间: {currentDateTime}</span>
+        <div className="border-t pt-3 mt-2 text-right">
+          <span className="text-sm text-gray-500">当前用户: {currentUser}</span><br/>
+          <span className="text-sm text-gray-500">当前时间: {currentDateTime}</span>
         </div>
-        <button onClick={logAccountMetrics} className="mt-2 bg-blue-500 text-white px-4 py-2 rounded">
+        <button onClick={logAccountMetrics} className="mt-2 bg-blue-500 text-white px-4 py-2 rounded-md w-full">
           显示全部计算过程
         </button>
       </div>
     </div>
 
-    <div className="col-span-9 bg-white p-4 border rounded overflow-auto">
-      <h3 className="text-lg font-bold mb-4">持仓列表</h3>
+    <div className="col-span-9 bg-white p-5 border rounded-lg shadow-sm">
+      <h3 className="text-xl font-bold mb-4">持仓列表</h3>
       <div className="w-full overflow-x-auto">
         <table className="w-full text-sm border">
           <thead className="bg-gray-200">
             <tr>
-              <th className="p-2 border">交易对</th>
-              <th className="p-2 border">方向</th>
-              <th className="p-2 border">类型</th>
-              <th className="p-2 border">杠杆</th>
-              <th className="p-2 border">开仓价</th>
-              <th className="p-2 border">当前价</th>
-              <th className="p-2 border">爆仓价</th>
-              <th className="p-2 border">维持保证金</th>
-              <th className="p-2 border">DEX</th>
-              <th className="p-2 border">未实现盈亏</th>
-              <th className="p-2 border">已实现盈亏</th>
-              <th className="p-2 border">张数</th>
-              <th className="p-2 border">保证金</th>
-              <th className="p-2 border">手续费</th>
-              <th className="p-2 border">操作</th>
+              <th className="p-3 border">交易对</th>
+              <th className="p-3 border">方向</th>
+              <th className="p-3 border">类型</th>
+              <th className="p-3 border">杠杆</th>
+              <th className="p-3 border">开仓价</th>
+              <th className="p-3 border">当前价</th>
+              <th className="p-3 border">爆仓价</th>
+              <th className="p-3 border">维持保证金</th>
+              <th className="p-3 border">DEX</th>
+              <th className="p-3 border">未实现盈亏</th>
+              <th className="p-3 border">已实现盈亏</th>
+              <th className="p-3 border">张数</th>
+              <th className="p-3 border">保证金</th>
+              <th className="p-3 border">手续费</th>
+              <th className="p-3 border">操作</th>
             </tr>
           </thead>
           <tbody>
             {positions.map((pos, idx) => (
               <tr key={idx} className={pos.closed ? "bg-gray-100" : ""}>
-                <td className="p-2 border text-center">{pos.symbol}</td>
-                <td className="p-2 border text-center">{translateDirection(pos.direction)}</td>
-                <td className="p-2 border text-center">{translateMarginType(pos.marginType)}</td>
-                <td className="p-2 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => addToLog(`杠杆倍数: ${pos.leverage}x`)}>
+                <td className="p-3 border text-center">{pos.symbol}</td>
+                <td className="p-3 border text-center">{translateDirection(pos.direction)}</td>
+                <td className="p-3 border text-center">{translateMarginType(pos.marginType)}</td>
+                <td className="p-3 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => addToLog(`杠杆倍数: ${pos.leverage}x`)}>
                   {pos.leverage}
                 </td>
-                <td className="p-2 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => addToLog(`开仓价: ${pos.entryPrice}`)}>
+                <td className="p-3 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => addToLog(`开仓价: ${pos.entryPrice}`)}>
                   {pos.entryPrice}
                 </td>
-                <td className="p-2 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => addToLog(`当前价: ${pos.currentPrice}`)}>
+                <td className="p-3 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => addToLog(`当前价: ${pos.currentPrice}`)}>
                   {pos.currentPrice}
                 </td>
                 <td 
-                  className="p-2 border text-blue-500 text-center cursor-pointer hover:underline" 
+                  className="p-3 border text-blue-500 text-center cursor-pointer hover:underline" 
                   onClick={() => logCalculation('liq', pos)}
                 >
                   {pos.liquidationPrice}
                 </td>
                 <td 
-                  className="p-2 border text-blue-500 text-center cursor-pointer hover:underline" 
+                  className="p-3 border text-blue-500 text-center cursor-pointer hover:underline" 
                   onClick={() => logCalculation('maintenanceMargin', pos)}
                 >
                   {pos.maintenanceMargin}
                 </td>
                 <td 
-                  className="p-2 border text-blue-500 text-center cursor-pointer hover:underline" 
+                  className="p-3 border text-blue-500 text-center cursor-pointer hover:underline" 
                   onClick={() => logCalculation('dex', pos)}
                 >
                   {pos.dex}
                 </td>
-                <td className="p-2 border text-blue-500 text-center cursor-pointer hover:underline" onClick={() => logCalculation('unrealizedPnl', pos)}>
+                <td className="p-3 border text-blue-500 text-center cursor-pointer hover:underline" onClick={() => logCalculation('unrealizedPnl', pos)}>
                   {pos.unrealizedPnl}
                 </td>
-                <td className="p-2 border text-center">
+                <td className="p-3 border text-center">
                   {pos.realizedPnl ? (
                     <span className={`text-blue-500 hover:underline cursor-pointer ${parseFloat(pos.realizedPnl) >= 0 ? 'text-green-500' : 'text-red-500'}`} onClick={() => logCalculation('realizedPnl', pos)}>
                       {parseFloat(pos.realizedPnl) >= 0 ? '+' : ''}{pos.realizedPnl}
                     </span>
                   ) : "-"}
                 </td>
-                <td className="p-2 border text-center">{pos.quantity}</td>
-                <td className="p-2 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => logCalculation('margin', pos)}>
+                <td className="p-3 border text-center">{pos.quantity}</td>
+                <td className="p-3 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => logCalculation('margin', pos)}>
                   {pos.margin}
                 </td>
-                <td className="p-2 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => logCalculation('fee', pos)}>
+                <td className="p-3 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => logCalculation('fee', pos)}>
                   {pos.closed ? pos.totalFee : pos.openFee}
                 </td>
-                <td className="p-2 border text-center">
+                <td className="p-3 border text-center">
                   {pos.closed ? (
                     <span className="text-gray-400">
                       已平仓@{pos.closePrice}
                     </span>
                   ) : (
                     <div className="flex flex-col items-center gap-1">
-                      <button onClick={() => closePosition(idx)} className="bg-red-500 text-white px-2 py-1 rounded">平仓</button>
-                      <button onClick={() => deletePosition(idx)} className="bg-gray-500 text-white px-2 py-1 rounded">删除</button>
+                      <button onClick={() => closePosition(idx)} className="bg-red-500 text-white px-3 py-1 rounded-md">平仓</button>
+                      <button onClick={() => deletePosition(idx)} className="bg-gray-500 text-white px-3 py-1 rounded-md">删除</button>
                     </div>
                   )}
                 </td>
@@ -1341,16 +1350,16 @@ export default function ContractFormulaCalculator() {
   </div>
 
   {/* 日志控制台 */}
-  <div className="mt-4 bg-black text-green-400 p-4 rounded font-mono text-sm h-[300px]">
-    <div className="flex justify-between items-center mb-2">
-      <strong>计算日志:</strong>
-      <button onClick={clearLogs} className="bg-gray-700 text-white px-2 py-1 rounded">清空日志</button>
+  <div className="mt-6 bg-black text-green-400 p-5 rounded-lg font-mono text-sm h-[350px]">
+    <div className="flex justify-between items-center mb-3">
+      <strong className="text-lg">计算日志:</strong>
+      <button onClick={clearLogs} className="bg-gray-700 text-white px-4 py-2 rounded-md">清空日志</button>
     </div>
-    <div className="h-[250px] overflow-y-auto">
+    <div className="h-[280px] overflow-y-auto pr-4">
       {logs.map((line, i) => (
-        <div key={i} className="whitespace-pre-wrap">
+        <div key={i} className="whitespace-pre-wrap mb-1">
           {line.startsWith('---') ? 
-            <div className="text-yellow-300 font-bold mt-2 mb-1">{line}</div> : 
+            <div className="text-yellow-300 font-bold mt-3 mb-1">{line}</div> : 
             <div>{line}</div>
           }
         </div>
