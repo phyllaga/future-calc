@@ -268,8 +268,9 @@ export const logCalculation = (type, pos, currentPrice, contractValue, feeRate, 
       addToLog(`计算过程：${closingValue.toFixed(4)} × ${feeRate} = ${pos.closeFee}`);
     }
   } else if (type === 'positionValue') {
-    addToLog(`仓位价值计算公式：数量 × 合约面值 × 开仓价`);
-    addToLog(`计算过程：${pos.quantity} × ${contractValue} × ${pos.entryPrice} = ${pos.positionValue}`);
+    const currentPositionValue = pos.quantity * contractValue * (pos.currentPrice || pos.entryPrice);
+    addToLog(`仓位价值计算公式：数量 × 合约面值 × 当前价`);
+    addToLog(`计算过程：${pos.quantity} × ${contractValue} × ${pos.currentPrice || pos.entryPrice} = ${currentPositionValue.toFixed(4)}`);
   } else if (type === 'dex') {
     // 显示DEX计算过程
     if (pos.closed) {
