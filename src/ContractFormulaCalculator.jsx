@@ -169,22 +169,28 @@ export default function ContractFormulaCalculator() {
 
   // 重新计算所有仓位
   const recalculatePositions = (isAutoRefresh = false) => {
-    if (newPositions.filter(p => p.status !== 'closed').length > 0) {
-      recalculatePositions();
+    if (positions.filter(p => p.status !== 'closed').length > 0) {
+      const updatedPositions = recalculateAllPositions({
+        positions,
+        currentPrice,
+        contractValue,
+        feeRate,
+        maintenanceMarginRate,
+        currentBalance,
+        addToLog,
+        currentUser,
+        currentDateTime
+      });
+
+      setPositions(updatedPositions);
+
+      if (!isAutoRefresh) {
+        addToLog(`重新计算完成: 当前价格 ${currentPrice}`);
+      }
     }
   };
 // 修正账户信息计算
-  const calculateAccountInfo = (positions, initialBalance, currentBalance) => {
-    const totalMarginCross = positions
-        .filter(p => p.marginType === 'cross' && p.status !== 'closed')
-        .reduce((sum, p) => sum + parseFloat(p.margin), 0);
 
-    const totalMarginIsolated = positions
-        .filter(p => p.marginType === 'isolated' && p.status !== 'closed')
-        .reduce((sum, p) => sum + parseFloat(p.margin), 0);
-
-    // ... 其余代码保持不变
-  };
   // 创建仓位
   const createPosition = () => {
     if (!entryPrice || !quantity) return;
