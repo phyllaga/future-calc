@@ -169,22 +169,22 @@ export default function ContractFormulaCalculator() {
 
   // 重新计算所有仓位
   const recalculatePositions = (isAutoRefresh = false) => {
-    const updatedPositions = recalculateAllPositions({
-      positions,
-      currentPrice,
-      contractValue,
-      feeRate,
-      maintenanceMarginRate,
-      currentBalance,
-      addToLog,
-      currentUser,
-      currentDateTime,
-      isAutoRefresh
-    });
-
-    setPositions(updatedPositions);
+    if (newPositions.filter(p => p.status !== 'closed').length > 0) {
+      recalculatePositions();
+    }
   };
+// 修正账户信息计算
+  const calculateAccountInfo = (positions, initialBalance, currentBalance) => {
+    const totalMarginCross = positions
+        .filter(p => p.marginType === 'cross' && p.status !== 'closed')
+        .reduce((sum, p) => sum + parseFloat(p.margin), 0);
 
+    const totalMarginIsolated = positions
+        .filter(p => p.marginType === 'isolated' && p.status !== 'closed')
+        .reduce((sum, p) => sum + parseFloat(p.margin), 0);
+
+    // ... 其余代码保持不变
+  };
   // 创建仓位
   const createPosition = () => {
     if (!entryPrice || !quantity) return;
@@ -686,16 +686,18 @@ export default function ContractFormulaCalculator() {
                       {pos.closed ? pos.closeFee : "0.00"}
                     </td>
                     <td className="p-2 md:p-3 border text-center">
-                      {pos.closed ? (
-                          <span className="text-gray-400">
-                        已平仓@{pos.closePrice}
-                      </span>
-                      ) : (
-                          <div className="flex flex-col items-center gap-1">
-                            <button onClick={() => handleClosePosition(idx)} className="bg-red-500 text-white px-2 py-1 rounded-md">平仓</button>
-                            <button onClick={() => deletePosition(idx)} className="bg-gray-500 text-white px-2 py-1 rounded-md">删除</button>
-                          </div>
-                      )}
+                      <div className="flex flex-col items-center gap-1">
+                        {pos.status === 'closed' ? (
+                            <span className="text-gray-400">
+                              已平仓@{pos.closePrice}
+                            </span>
+                        ) : (
+                            <>
+                              <button onClick={() => handleClosePosition(idx)} className="bg-red-500 text-white px-2 py-1 rounded-md">平仓</button>
+                              <button onClick={() => deletePosition(idx)} className="bg-gray-500 text-white px-2 py-1 rounded-md">删除</button>
+                            </>
+                        )}
+                      </div>
                     </td>
                   </tr>
               ))}

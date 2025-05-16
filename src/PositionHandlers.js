@@ -55,7 +55,7 @@ export const createNewPosition = (props) => {
     currentPrice,
     leverage,
     marginType,
-    closed: false,
+    status: 'open',
     positionValue: positionValue.toFixed(4),
     margin: margin.toFixed(2),
     openFee: openFee.toFixed(4),
@@ -71,6 +71,7 @@ export const createNewPosition = (props) => {
 
 // 平仓函数
 // 平仓函数修改
+// 修改平仓函数
 export const closePosition = (props) => {
   const {
     position, index, closePrice, positions, currentBalance,
@@ -87,9 +88,8 @@ export const closePosition = (props) => {
   // 计算平仓手续费
   const closingFee = pos.quantity * contractValue * closePrice * feeRate;
 
-  // 平仓后更新当前余额 = 当前余额 + 盈亏 - 开仓手续费 - 平仓手续费
-  const openFee = parseFloat(pos.openFee);
-  const newBalance = currentBalance + parseFloat(pnl) - openFee - closingFee;
+  // 更新余额 = 当前余额 + 盈亏 - 平仓手续费
+  const newBalance = currentBalance + parseFloat(pnl) - closingFee;
 
   addToLog(`--- 平仓操作 ---`);
   addToLog(`用户: ${currentUser}`);
@@ -97,22 +97,24 @@ export const closePosition = (props) => {
   addToLog(`仓位: ${pos.symbol} ${pos.direction === 'long' ? '多单' : '空单'} ${pos.quantity}张 @${pos.entryPrice}`);
   addToLog(`平仓价格: ${closePrice}`);
 
-  // 记录详细计算过程
+  // 记录计算过程
   const formula = pos.direction === 'long' ? '(平仓价 - 开仓价)' : '(开仓价 - 平仓价)';
   addToLog(`已实现盈亏计算公式：${formula} × 数量 × 合约面值`);
   addToLog(`计算过程：${pos.direction === 'long' ? `(${closePrice} - ${pos.entryPrice})` : `(${pos.entryPrice} - ${closePrice})`} × ${pos.quantity} × ${contractValue}`);
   addToLog(`= ${delta.toFixed(4)} × ${pos.quantity} × ${contractValue}`);
   addToLog(`= ${pnl.toFixed(2)}`);
 
-  // 更新仓位状态
-  pos.closed = true;                    // 标记为已平仓
+  // 更新仓位信息，但保留仓位在列表中
   pos.closePrice = closePrice;          // 记录平仓价格
   pos.realizedPnl = pnl.toFixed(2);    // 设置已实现盈亏
-  pos.unrealizedPnl = "0.00";          // 平仓后未实现盈亏为0
   pos.closeFee = closingFee.toFixed(4); // 记录平仓手续费
   pos.closedAt = currentDateTime;       // 记录平仓时间
-  pos.liquidationPrice = "-";           // 清除爆仓价
-  pos.dex = "-";                       // 清除DEX值
+  pos.status = 'closed';               // 使用status标记状态，而不是closed布尔值
+
+  // 保持这些值以便显示
+  pos.unrealizedPnl = "0.00";
+  pos.liquidationPrice = pos.liquidationPrice;
+  pos.dex = pos.dex;
 
   addToLog(`仓位已平仓，新余额: ${newBalance.toFixed(2)}`);
 
@@ -135,7 +137,7 @@ export const recalculateAllPositions = (props) => {
   
   // 重新计算所有仓位的基础值：仓位价值、保证金、手续费、维持保证金和未实现盈亏
   let updatedPositions = positions.map(pos => {
-    if (pos.closed) return pos;
+    if (pos.status === 'closed') return pos;
     
     return calculatePositionValues(
       pos, currentPrice, contractValue, feeRate, maintenanceMarginRate
@@ -158,7 +160,7 @@ export const recalculateAllPositions = (props) => {
   
   // 显示每个仓位的DEX和爆仓价更新
   if (!isAutoRefresh) {
-    finalPositions.filter(p => !p.closed).forEach(pos => {
+    finalPositions.filter(p => p.status !== 'closed').forEach(pos => {
       const positionValue = parseFloat(pos.positionValue);
       
       addToLog(`仓位: ${pos.symbol} ${pos.direction === 'long' ? '多单' : '空单'} ${pos.quantity}张:`);
