@@ -1,4 +1,4 @@
-import { isPositionClosed, calculatePositionValues } from './CalculationUtils';
+
 /**
  * 计算工具函数
  * 包含所有与合约交易计算相关的功能
