@@ -31,7 +31,7 @@ export default function ContractFormulaCalculator() {
   const refreshTimerRef = useRef(null);
 
   // 当前日期和时间，用户名
-  const currentDateTime = "2025-05-16 02:02:43";
+  const currentDateTime = "2025-05-16 03:03:04";
   const currentUser = "phyllaga";
 
   // 静态合约数据
@@ -214,6 +214,37 @@ export default function ContractFormulaCalculator() {
     }
   ];
 
+  // 记录余额变更历史
+  const logBalanceHistory = () => {
+    addToLog(`--- 余额变更历史 ---`);
+    addToLog(`初始余额: ${initialBalance.toFixed(2)}`);
+    
+    // 查找所有已平仓的仓位
+    const closedPositions = positions.filter(p => p.closed);
+    
+    if (closedPositions.length > 0) {
+      let runningBalance = initialBalance;
+      
+      closedPositions.forEach((pos, index) => {
+        const posRealizedPnl = parseFloat(pos.realizedPnl);
+        const posOpenFee = parseFloat(pos.openFee);
+        const posCloseFee = parseFloat(pos.closeFee);
+        
+        runningBalance = runningBalance + posRealizedPnl - posOpenFee - posCloseFee;
+        
+        addToLog(`[${index + 1}] ${pos.symbol} ${translateDirection(pos.direction)} ${pos.quantity}张 @${pos.entryPrice}→${pos.closePrice}:`);
+        addToLog(`  已实现盈亏: ${posRealizedPnl >= 0 ? '+' : ''}${posRealizedPnl.toFixed(2)}`);
+        addToLog(`  开仓手续费: -${posOpenFee.toFixed(4)}`);
+        addToLog(`  平仓手续费: -${posCloseFee.toFixed(4)}`);
+        addToLog(`  该仓位后余额: ${runningBalance.toFixed(2)}`);
+      });
+      
+      addToLog(`最终余额: ${currentBalance.toFixed(2)}`);
+    } else {
+      addToLog(`尚无平仓记录，当前余额与初始余额相同: ${currentBalance.toFixed(2)}`);
+    }
+  };
+
   // 自动刷新价格定时器
   useEffect(() => {
     // 清除之前的定时器
@@ -394,6 +425,9 @@ export default function ContractFormulaCalculator() {
   // 计算爆仓价，基于最新的DEX值
   const calculateLiquidationPrices = (positionsWithDex) => {
     return positionsWithDex.map(pos => {
+      // 如果已平仓，不再计算爆仓价
+      if (pos.closed) return pos;
+      
       const positionValue = parseFloat(pos.positionValue);
       const dex = parseFloat(pos.dex);
       let liquidationPrice;
@@ -503,11 +537,13 @@ export default function ContractFormulaCalculator() {
       positionValue: positionValue.toFixed(4),
       margin: margin.toFixed(2),
       openFee: openFee.toFixed(4),
-      closeFee: null,
+      closeFee: "0.00",  // 初始平仓手续费为0
       maintenanceMargin: maintenanceMargin.toFixed(4),
       unrealizedPnl,
       realizedPnl: null,
       createdAt: new Date().toISOString(),
+      closePrice: null,
+      closedAt: null
     };
     
     // 注意：开仓时不改变当前余额，只是计算所需的保证金
@@ -545,6 +581,157 @@ export default function ContractFormulaCalculator() {
     
     setPositions(finalPositions);
     addToLog(`仓位创建成功: ${symbol} ${translateDirection(direction)} ${qty}张 @${ep}，当前余额保持为 ${currentBalance.toFixed(2)}`);
+    
+    // 清空输入框
+    setEntryPrice('');
+    setQuantity('');
+  };
+
+  // 添加手续费分开记录功能
+  const logCalculation = (type, pos) => {
+    addToLog(`用户: ${currentUser}`);
+    addToLog(`时间: ${currentDateTime} (UTC)`);
+    
+    if (type === 'unrealizedPnl') {
+      if (pos.closed) {
+        addToLog(`该仓位已平仓，未实现盈亏为0`);
+      } else {
+        const formula = pos.direction === 'long' ? '(当前价 - 开仓价)' : '(开仓价 - 当前价)';
+        const delta = pos.direction === 'long'
+          ? currentPrice - pos.entryPrice
+          : pos.entryPrice - currentPrice;
+        
+        addToLog(`未实现盈亏计算公式：${formula} × 数量 × 合约面值`);
+        addToLog(`计算过程：${pos.direction === 'long' ? `(${currentPrice} - ${pos.entryPrice})` : `(${pos.entryPrice} - ${currentPrice})`} × ${pos.quantity} × ${contractValue}`);
+        addToLog(`= ${delta.toFixed(4)} × ${pos.quantity} × ${contractValue}`);
+        addToLog(`= ${pos.unrealizedPnl}`);
+      }
+    } else if (type === 'realizedPnl') {
+      if (!pos.closed || pos.realizedPnl === null) {
+        addToLog(`该仓位尚未平仓，暂无已实现盈亏`);
+      } else {
+        const formula = pos.direction === 'long' ? '(平仓价 - 开仓价)' : '(开仓价 - 平仓价)';
+        const delta = pos.direction === 'long'
+          ? pos.closePrice - pos.entryPrice
+          : pos.entryPrice - pos.closePrice;
+        
+        addToLog(`已实现盈亏计算公式：${formula} × 数量 × 合约面值`);
+        addToLog(`计算过程：${pos.direction === 'long' ? `(${pos.closePrice} - ${pos.entryPrice})` : `(${pos.entryPrice} - ${pos.closePrice})`} × ${pos.quantity} × ${contractValue}`);
+        addToLog(`= ${delta.toFixed(4)} × ${pos.quantity} × ${contractValue}`);
+        addToLog(`= ${pos.realizedPnl}`);
+      }
+    } else if (type === 'liq') {
+      if (pos.closed) {
+        addToLog(`该仓位已平仓，无爆仓价格`);
+        return;
+      }
+      
+      const positionValue = parseFloat(pos.positionValue);
+      const dex = parseFloat(pos.dex);
+      
+      if (pos.direction === 'long') {
+        addToLog(`多仓爆仓价计算公式：(仓位价值 - DEX) ÷ (持仓张数 × 面值)`);
+        addToLog(`计算过程：(${positionValue.toFixed(4)} - ${dex.toFixed(4)}) ÷ (${pos.quantity} × ${contractValue})`);
+        addToLog(`= ${(positionValue - dex).toFixed(4)} ÷ ${(pos.quantity * contractValue).toFixed(4)}`);
+        addToLog(`= ${pos.liquidationPrice}`);
+      } else {
+        addToLog(`空仓爆仓价计算公式：(仓位价值 + DEX) ÷ (持仓张数 × 面值)`);
+        addToLog(`计算过程：(${positionValue.toFixed(4)} + ${dex.toFixed(4)}) ÷ (${pos.quantity} × ${contractValue})`);
+        addToLog(`= ${(positionValue + dex).toFixed(4)} ÷ ${(pos.quantity * contractValue).toFixed(4)}`);
+        addToLog(`= ${pos.liquidationPrice}`);
+      }
+    } else if (type === 'margin') {
+      const positionValue = pos.quantity * contractValue * pos.entryPrice;
+      
+      addToLog(`保证金计算公式：仓位价值 ÷ 杠杆`);
+      addToLog(`计算过程：${positionValue.toFixed(4)} ÷ ${pos.leverage} = ${pos.margin}`);
+    } else if (type === 'maintenanceMargin') {
+      addToLog(`维持保证金计算公式：持仓张数 × 开仓均价 × 面值 × 维持保证金率`);
+      addToLog(`计算过程：${pos.quantity} × ${pos.entryPrice} × ${contractValue} × ${maintenanceMarginRate} = ${pos.maintenanceMargin}`);
+    } else if (type === 'openFee') {
+      const positionValue = pos.quantity * contractValue * pos.entryPrice;
+      
+      addToLog(`开仓手续费计算公式：仓位价值 × 手续费率`);
+      addToLog(`计算过程：${positionValue.toFixed(4)} × ${feeRate} = ${pos.openFee}`);
+    } else if (type === 'closeFee') {
+      if (!pos.closed) {
+        addToLog(`该仓位尚未平仓，暂无平仓手续费`);
+      } else {
+        const closingValue = pos.quantity * contractValue * pos.closePrice;
+        addToLog(`平仓手续费计算公式：仓位价值(平仓时) × 手续费率`);
+        addToLog(`计算过程：${closingValue.toFixed(4)} × ${feeRate} = ${pos.closeFee}`);
+      }
+    } else if (type === 'positionValue') {
+      addToLog(`仓位价值计算公式：数量 × 合约面值 × 开仓价`);
+      addToLog(`计算过程：${pos.quantity} × ${contractValue} × ${pos.entryPrice} = ${pos.positionValue}`);
+    } else if (type === 'dex') {
+      // 显示DEX计算过程
+      if (pos.closed) {
+        addToLog(`该仓位已平仓，无DEX值`);
+      } else {
+        logDEXCalculation(pos, positions);
+      }
+    }
+  };
+
+  // 修改平仓函数以支持分开显示手续费
+  const closePosition = (index) => {
+    const closePrice = parseFloat(prompt('请输入平仓价格', currentPrice));
+    if (isNaN(closePrice)) return;
+    
+    const updated = [...positions];
+    const pos = updated[index];
+    
+    // 计算平仓盈亏
+    const delta = pos.direction === 'long' ? closePrice - pos.entryPrice : pos.entryPrice - closePrice;
+    const pnl = delta * pos.quantity * contractValue;
+    
+    // 计算平仓手续费
+    const closingFee = pos.quantity * contractValue * closePrice * feeRate;
+    
+    // 平仓后更新当前余额 = 当前余额 + 盈亏 - 开仓手续费 - 平仓手续费
+    const openFee = parseFloat(pos.openFee);
+    const newBalance = currentBalance + parseFloat(pnl) - openFee - closingFee;
+    
+    addToLog(`--- 平仓操作 ---`);
+    addToLog(`用户: ${currentUser}`);
+    addToLog(`时间: ${currentDateTime} (UTC)`);
+    addToLog(`仓位: ${pos.symbol} ${translateDirection(pos.direction)} ${pos.quantity}张 @${pos.entryPrice}`);
+    addToLog(`平仓价格: ${closePrice}`);
+    
+    const formula = pos.direction === 'long' ? '(平仓价 - 开仓价)' : '(开仓价 - 平仓价)';
+    addToLog(`已实现盈亏计算公式：${formula} × 数量 × 合约面值`);
+    addToLog(`计算过程：${pos.direction === 'long' ? `(${closePrice} - ${pos.entryPrice})` : `(${pos.entryPrice} - ${closePrice})`} × ${pos.quantity} × ${contractValue}`);
+    addToLog(`= ${delta.toFixed(4)} × ${pos.quantity} × ${contractValue}`);
+    addToLog(`= ${pnl.toFixed(2)}`);
+    
+    addToLog(`开仓手续费计算公式：仓位价值(开仓时) × 手续费率`);
+    addToLog(`计算过程：${pos.quantity} × ${contractValue} × ${pos.entryPrice} × ${feeRate} = ${openFee.toFixed(4)}`);
+    
+    addToLog(`平仓手续费计算公式：仓位价值(平仓时) × 手续费率`);
+    addToLog(`计算过程：${pos.quantity} × ${contractValue} × ${closePrice} × ${feeRate} = ${closingFee.toFixed(4)}`);
+    
+    addToLog(`余额变化计算公式：当前余额 + 盈亏 - 开仓手续费 - 平仓手续费`);
+    addToLog(`计算过程：${currentBalance.toFixed(2)} + ${pnl.toFixed(2)} - ${openFee.toFixed(4)} - ${closingFee.toFixed(4)}`);
+    addToLog(`= ${currentBalance.toFixed(2)} + ${pnl.toFixed(2)} - ${(openFee + closingFee).toFixed(4)}`);
+    addToLog(`= ${newBalance.toFixed(2)}`);
+    
+    // 更新仓位状态
+    pos.closed = true;
+    pos.closePrice = closePrice;
+    pos.realizedPnl = pnl.toFixed(2);  // 设置已实现盈亏
+    pos.unrealizedPnl = "0.00";        // 平仓后未实现盈亏为0
+    pos.closeFee = closingFee.toFixed(4); // 单独记录平仓手续费
+    pos.closedAt = new Date().toISOString();
+    
+    setCurrentBalance(newBalance);
+    setPositions(updated);
+    
+    addToLog(`仓位已平仓，新余额: ${newBalance.toFixed(2)}`);
+    
+    // 平仓后需要重新计算所有仓位的DEX和爆仓价
+    addToLog(`--- 平仓后重新计算所有仓位 ---`);
+    setTimeout(() => recalculateAllPositions(), 100);
   };
 
   const calculatePnL = (ep, mp, qty, dir) => {
@@ -665,66 +852,6 @@ export default function ContractFormulaCalculator() {
     setPositions(finalPositions);
   };
 
-  const closePosition = (index) => {
-    const closePrice = parseFloat(prompt('请输入平仓价格', currentPrice));
-    if (isNaN(closePrice)) return;
-    
-    const updated = [...positions];
-    const pos = updated[index];
-    
-    // 计算平仓盈亏
-    const delta = pos.direction === 'long' ? closePrice - pos.entryPrice : pos.entryPrice - closePrice;
-    const pnl = delta * pos.quantity * contractValue;
-    
-    // 计算平仓手续费
-    const closingFee = pos.quantity * contractValue * closePrice * feeRate;
-    
-    // 平仓后更新当前余额 = 当前余额 + 盈亏 - 开仓手续费 - 平仓手续费
-    const openFee = parseFloat(pos.openFee);
-    const newBalance = currentBalance + parseFloat(pnl) - openFee - closingFee;
-    
-    addToLog(`--- 平仓操作 ---`);
-    addToLog(`用户: ${currentUser}`);
-    addToLog(`时间: ${currentDateTime} (UTC)`);
-    addToLog(`仓位: ${pos.symbol} ${translateDirection(pos.direction)} ${pos.quantity}张 @${pos.entryPrice}`);
-    addToLog(`平仓价格: ${closePrice}`);
-    
-    const formula = pos.direction === 'long' ? '(平仓价 - 开仓价)' : '(开仓价 - 平仓价)';
-    addToLog(`已实现盈亏计算公式：${formula} × 数量 × 合约面值`);
-    addToLog(`计算过程：${pos.direction === 'long' ? `(${closePrice} - ${pos.entryPrice})` : `(${pos.entryPrice} - ${closePrice})`} × ${pos.quantity} × ${contractValue}`);
-    addToLog(`= ${delta.toFixed(4)} × ${pos.quantity} × ${contractValue}`);
-    addToLog(`= ${pnl.toFixed(2)}`);
-    
-    addToLog(`开仓手续费计算公式：仓位价值(开仓时) × 手续费率`);
-    addToLog(`计算过程：${pos.quantity} × ${contractValue} × ${pos.entryPrice} × ${feeRate} = ${openFee.toFixed(4)}`);
-    
-    addToLog(`平仓手续费计算公式：仓位价值(平仓时) × 手续费率`);
-    addToLog(`计算过程：${pos.quantity} × ${contractValue} × ${closePrice} × ${feeRate} = ${closingFee.toFixed(4)}`);
-    
-    addToLog(`余额变化计算公式：当前余额 + 盈亏 - 开仓手续费 - 平仓手续费`);
-    addToLog(`计算过程：${currentBalance.toFixed(2)} + ${pnl.toFixed(2)} - ${openFee.toFixed(4)} - ${closingFee.toFixed(4)}`);
-    addToLog(`= ${currentBalance.toFixed(2)} + ${pnl.toFixed(2)} - ${(openFee + closingFee).toFixed(4)}`);
-    addToLog(`= ${newBalance.toFixed(2)}`);
-    
-    // 更新仓位状态
-    pos.closed = true;
-    pos.closePrice = closePrice;
-    pos.realizedPnl = pnl.toFixed(2);  // 设置已实现盈亏
-    pos.unrealizedPnl = "0.00";        // 平仓后未实现盈亏为0
-    pos.closeFee = closingFee.toFixed(4);
-    pos.closedAt = new Date().toISOString();
-    pos.totalFee = (openFee + closingFee).toFixed(4);
-    
-    setCurrentBalance(newBalance);
-    setPositions(updated);
-    
-    addToLog(`仓位已平仓，新余额: ${newBalance.toFixed(2)}`);
-    
-    // 平仓后需要重新计算所有仓位的DEX和爆仓价
-    addToLog(`--- 平仓后重新计算所有仓位 ---`);
-    setTimeout(() => recalculateAllPositions(), 100);
-  };
-
   const deletePosition = (index) => {
     const posToDelete = positions[index];
     addToLog(`--- 删除仓位 ---`);
@@ -748,85 +875,6 @@ export default function ContractFormulaCalculator() {
   const resetBalance = () => {
     setCurrentBalance(initialBalance);
     addToLog(`余额已重置为初始值: ${initialBalance.toFixed(2)}`);
-  };
-
-  // 日志计算功能
-  const logCalculation = (type, pos) => {
-    addToLog(`用户: ${currentUser}`);
-    addToLog(`时间: ${currentDateTime} (UTC)`);
-    
-    if (type === 'unrealizedPnl') {
-      if (pos.closed) {
-        addToLog(`该仓位已平仓，未实现盈亏为0`);
-      } else {
-        const formula = pos.direction === 'long' ? '(当前价 - 开仓价)' : '(开仓价 - 当前价)';
-        const delta = pos.direction === 'long'
-          ? currentPrice - pos.entryPrice
-          : pos.entryPrice - currentPrice;
-        
-        addToLog(`未实现盈亏计算公式：${formula} × 数量 × 合约面值`);
-        addToLog(`计算过程：${pos.direction === 'long' ? `(${currentPrice} - ${pos.entryPrice})` : `(${pos.entryPrice} - ${currentPrice})`} × ${pos.quantity} × ${contractValue}`);
-        addToLog(`= ${delta.toFixed(4)} × ${pos.quantity} × ${contractValue}`);
-        addToLog(`= ${pos.unrealizedPnl}`);
-      }
-    } else if (type === 'realizedPnl') {
-      if (!pos.closed || pos.realizedPnl === null) {
-        addToLog(`该仓位尚未平仓，暂无已实现盈亏`);
-      } else {
-        const formula = pos.direction === 'long' ? '(平仓价 - 开仓价)' : '(开仓价 - 平仓价)';
-        const delta = pos.direction === 'long'
-          ? pos.closePrice - pos.entryPrice
-          : pos.entryPrice - pos.closePrice;
-        
-        addToLog(`已实现盈亏计算公式：${formula} × 数量 × 合约面值`);
-        addToLog(`计算过程：${pos.direction === 'long' ? `(${pos.closePrice} - ${pos.entryPrice})` : `(${pos.entryPrice} - ${pos.closePrice})`} × ${pos.quantity} × ${contractValue}`);
-        addToLog(`= ${delta.toFixed(4)} × ${pos.quantity} × ${contractValue}`);
-        addToLog(`= ${pos.realizedPnl}`);
-      }
-    } else if (type === 'liq') {
-      const positionValue = parseFloat(pos.positionValue);
-      const dex = parseFloat(pos.dex);
-      
-      if (pos.direction === 'long') {
-        addToLog(`多仓爆仓价计算公式：(仓位价值 - DEX) ÷ (持仓张数 × 面值)`);
-        addToLog(`计算过程：(${positionValue.toFixed(4)} - ${dex.toFixed(4)}) ÷ (${pos.quantity} × ${contractValue})`);
-        addToLog(`= ${(positionValue - dex).toFixed(4)} ÷ ${(pos.quantity * contractValue).toFixed(4)}`);
-        addToLog(`= ${pos.liquidationPrice}`);
-      } else {
-        addToLog(`空仓爆仓价计算公式：(仓位价值 + DEX) ÷ (持仓张数 × 面值)`);
-        addToLog(`计算过程：(${positionValue.toFixed(4)} + ${dex.toFixed(4)}) ÷ (${pos.quantity} × ${contractValue})`);
-        addToLog(`= ${(positionValue + dex).toFixed(4)} ÷ ${(pos.quantity * contractValue).toFixed(4)}`);
-        addToLog(`= ${pos.liquidationPrice}`);
-      }
-    } else if (type === 'margin') {
-      const positionValue = pos.quantity * contractValue * pos.entryPrice;
-      
-      addToLog(`保证金计算公式：仓位价值 ÷ 杠杆`);
-      addToLog(`计算过程：${positionValue.toFixed(4)} ÷ ${pos.leverage} = ${pos.margin}`);
-    } else if (type === 'maintenanceMargin') {
-      addToLog(`维持保证金计算公式：持仓张数 × 开仓均价 × 面值 × 维持保证金率`);
-      addToLog(`计算过程：${pos.quantity} × ${pos.entryPrice} × ${contractValue} × ${maintenanceMarginRate} = ${pos.maintenanceMargin}`);
-    } else if (type === 'fee') {
-      const positionValue = pos.quantity * contractValue * pos.entryPrice;
-      
-      addToLog(`开仓手续费计算公式：仓位价值 × 手续费率`);
-      addToLog(`计算过程：${positionValue.toFixed(4)} × ${feeRate} = ${pos.openFee}`);
-      
-      if (pos.closed && pos.closeFee) {
-        const closingValue = pos.quantity * contractValue * pos.closePrice;
-        addToLog(`平仓手续费计算公式：仓位价值(平仓时) × 手续费率`);
-        addToLog(`计算过程：${closingValue.toFixed(4)} × ${feeRate} = ${pos.closeFee}`);
-        
-        addToLog(`总手续费计算公式：开仓手续费 + 平仓手续费`);
-        addToLog(`计算过程：${pos.openFee} + ${pos.closeFee} = ${pos.totalFee}`);
-      }
-    } else if (type === 'positionValue') {
-      addToLog(`仓位价值计算公式：数量 × 合约面值 × 开仓价`);
-      addToLog(`计算过程：${pos.quantity} × ${contractValue} × ${pos.entryPrice} = ${pos.positionValue}`);
-    } else if (type === 'dex') {
-      // 显示DEX计算过程
-      logDEXCalculation(pos, positions);
-    }
   };
 
   const clearLogs = () => setLogs([]);
@@ -966,6 +1014,11 @@ export default function ContractFormulaCalculator() {
     addToLog(`可用资金计算公式：当前余额 - 总保证金占用`);
     addToLog(`计算过程：${currentBalance.toFixed(2)} - ${totalMargin.toFixed(2)} = ${availableBalance.toFixed(2)}`);
     
+    // 如果有余额变更历史，也记录
+    if (closedPositions.length > 0) {
+      logBalanceHistory();
+    }
+    
     // DEX计算公式展示
     addToLog(`DEX计算公式：余额 - 维持保证金之和 - 手续费之和 - 逐仓保证金之和 + 除本交易对以外其他仓位的未实现盈亏之和`);
     
@@ -999,357 +1052,389 @@ export default function ContractFormulaCalculator() {
   }, [initialBalance]);
 
   return (
-    <>
     <div className="w-full min-w-full p-4 md:p-6">
-  {/* 顶部基础参数设置区 - 已调整布局，按钮移至第一行且更小 */}
-  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-8 gap-4 bg-gray-100 p-4 md:p-5 rounded-lg mb-6 w-full">
-    <div className="col-span-1 lg:col-span-1">
-      <label className="block mb-2 text-md">交易对</label>
-      <div className="flex gap-2">
-        <select
-          value={symbol}
-          onChange={handleContractChange}
-          className="w-full p-2 border rounded-md"
-          disabled={isLoading}
-        >
-          <option value="">选择交易对</option>
-          {contractList.map(contract => (
-            <option key={contract.id} value={contract.symbol}>
-              {contract.enName}
-            </option>
-          ))}
-        </select>
-      </div>
-    </div>
-    <div className="col-span-1 lg:col-span-1">
-      <label className="block mb-2 text-md">当前价格</label>
-      <div className="flex flex-col gap-1">
-        <div className="flex gap-2">
+      {/* 顶部基础参数设置区 */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-8 gap-4 bg-gray-100 p-4 md:p-5 rounded-lg mb-6 w-full">
+        <div className="col-span-1 lg:col-span-1">
+          <label className="block mb-2 text-md">交易对</label>
+          <div className="flex gap-2">
+            <select
+              value={symbol}
+              onChange={handleContractChange}
+              className="w-full p-2 border rounded-md"
+              disabled={isLoading}
+            >
+              <option value="">选择交易对</option>
+              {contractList.map(contract => (
+                <option key={contract.id} value={contract.symbol}>
+                  {contract.enName}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="col-span-1 lg:col-span-1">
+          <label className="block mb-2 text-md">当前价格</label>
+          <div className="flex flex-col gap-1">
+            <div className="flex gap-2">
+                            <input 
+                type="number" 
+                value={currentPrice} 
+                onChange={e => setCurrentPrice(parseFloat(e.target.value))} 
+                className="w-full p-2 border rounded-md" 
+                disabled={autoRefresh}
+              />
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              <label className="flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={autoRefresh} 
+                  onChange={toggleAutoRefresh} 
+                  className="mr-1"
+                />
+                自动刷新
+              </label>
+              {autoRefresh && (
+                <span className="text-green-600 text-xs">
+                  {lastUpdated ? `${lastUpdated}` : "准备更新..."}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="col-span-1 lg:col-span-1">
+          <label className="block mb-2 text-md">维持保证金率</label>
           <input 
             type="number" 
-            value={currentPrice} 
-            onChange={e => setCurrentPrice(parseFloat(e.target.value))} 
-            className="w-full p-2 border rounded-md" 
-            disabled={autoRefresh}
+            value={maintenanceMarginRate} 
+            onChange={e => setMaintenanceMarginRate(parseFloat(e.target.value))} 
+            className="w-full p-2 border rounded-md"
+            onClick={() => addToLog(`维持保证金率设置为 ${maintenanceMarginRate} (${maintenanceMarginRate*100}%)`)}
           />
         </div>
-        <div className="flex items-center gap-2 text-xs">
-          <label className="flex items-center cursor-pointer">
-            <input 
-              type="checkbox" 
-              checked={autoRefresh} 
-              onChange={toggleAutoRefresh} 
-              className="mr-1"
-            />
-            自动刷新
-          </label>
-          {autoRefresh && (
-            <span className="text-green-600 text-xs">
-              {lastUpdated ? `${lastUpdated}` : "准备更新..."}
+        <div className="col-span-1 lg:col-span-1">
+          <label className="block mb-2 text-md">合约面值</label>
+          <input 
+            type="number" 
+            value={contractValue} 
+            onChange={e => setContractValue(parseFloat(e.target.value))} 
+            className="w-full p-2 border rounded-md" 
+            placeholder="0.0001"
+            onClick={() => addToLog(`合约面值设置为 ${contractValue}`)}
+          />
+        </div>
+        <div className="col-span-1 lg:col-span-1">
+          <label className="block mb-2 text-md">初始余额</label>
+          <input 
+            type="number" 
+            value={initialBalance} 
+            onChange={e => setInitialBalance(parseFloat(e.target.value))} 
+            className="w-full p-2 border rounded-md"
+            onClick={() => addToLog(`初始余额设置为 ${initialBalance}`)}
+          />
+        </div>
+        <div className="col-span-1 lg:col-span-1">
+          <label className="block mb-2 text-md">手续费率</label>
+          <input 
+            type="number" 
+            value={feeRate} 
+            onChange={e => setFeeRate(parseFloat(e.target.value))} 
+            className="w-full p-2 border rounded-md"
+            onClick={() => addToLog(`手续费率设置为 ${feeRate} (${feeRate*100}%)`)}
+          />
+        </div>
+        <div className="col-span-1 lg:col-span-1 flex items-end">
+          <button 
+            onClick={() => {
+              addToLog(`--- 触发参数更改重新计算 ---`);
+              recalculateAllPositions();
+            }} 
+            className="bg-blue-500 text-white px-3 py-2 rounded-md text-sm"
+          >
+            重新计算
+          </button>
+        </div>
+        <div className="col-span-1 lg:col-span-1 flex items-end">
+          <button 
+            onClick={refreshPrice} 
+            className="mr-2 bg-gray-300 px-3 py-2 rounded-md hover:bg-gray-400 text-sm"
+            disabled={isLoading}
+          >
+            {isLoading ? "..." : "刷新价格"}
+          </button>
+          <button 
+            onClick={resetBalance} 
+            className="bg-yellow-500 text-white px-3 py-2 rounded-md text-sm"
+          >
+            重置余额
+          </button>
+        </div>
+      </div>
+
+      {/* 仓位创建区 */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 bg-white p-3 md:p-4 border rounded-lg mb-4 shadow-sm w-full">
+        <div className="col-span-1">
+          <label className="block mb-1 text-sm">开仓价格</label>
+          <input 
+            type="number" 
+            value={entryPrice} 
+            onChange={e => setEntryPrice(e.target.value)} 
+            className="w-full p-2 border rounded-md" 
+          />
+        </div>
+        <div className="col-span-1">
+          <label className="block mb-1 text-sm">张数</label>
+          <input 
+            type="number" 
+            value={quantity} 
+            onChange={e => setQuantity(e.target.value)} 
+            className="w-full p-2 border rounded-md" 
+          />
+        </div>
+        <div className="col-span-1">
+          <label className="block mb-1 text-sm">杠杆倍数</label>
+          <input 
+            type="number" 
+            value={leverage} 
+            onChange={e => {
+              setLeverage(parseFloat(e.target.value));
+              addToLog(`杠杆倍数设置为 ${e.target.value}x`);
+            }} 
+            className="w-full p-2 border rounded-md" 
+          />
+        </div>
+        <div className="col-span-1">
+          <label className="block mb-1 text-sm">方向</label>
+          <select 
+            value={direction} 
+            onChange={e => {
+              setDirection(e.target.value);
+              addToLog(`交易方向设置为 ${e.target.value === 'long' ? '多单' : '空单'}`);
+            }} 
+            className="w-full p-2 border rounded-md"
+          >
+            <option value="long">多单</option>
+            <option value="short">空单</option>
+          </select>
+        </div>
+        <div className="col-span-1">
+          <label className="block mb-1 text-sm">仓位类型</label>
+          <select 
+            value={marginType} 
+            onChange={e => {
+              setMarginType(e.target.value);
+              addToLog(`保证金类型设置为 ${e.target.value === 'cross' ? '全仓' : '逐仓'}`);
+            }} 
+            className="w-full p-2 border rounded-md"
+          >
+            <option value="cross">全仓</option>
+            <option value="isolated">逐仓</option>
+          </select>
+        </div>
+        <div className="col-span-1 flex items-end">
+          <button 
+            onClick={createPosition} 
+            className="bg-green-600 text-white px-4 py-2 rounded-md w-full text-base"
+            disabled={!entryPrice || !quantity}
+          >
+            创建持仓
+          </button>
+        </div>
+      </div>
+      
+      {/* 账户信息行 */}
+      <div className="bg-white p-3 md:p-4 border rounded-lg mb-6 shadow-sm w-full">
+        <div className="flex flex-wrap items-center gap-3 md:gap-5">
+          <div className="flex items-center">
+            <span className="mr-1">初始余额:</span>
+            <span className="text-blue-500 hover:underline cursor-pointer" onClick={() => addToLog(`初始余额 = ${initialBalance.toFixed(2)}`)}>
+              {initialBalance.toFixed(2)}
             </span>
-          )}
+          </div>
+          <div className="flex items-center">
+            <span className="mr-1">当前余额:</span>
+            <span className="text-blue-500 hover:underline cursor-pointer font-bold" onClick={() => logBalanceHistory()}>
+              {currentBalance.toFixed(2)}
+            </span>
+          </div>
+          <div className="flex items-center">
+            <span className="mr-1">全仓保证金:</span>
+            <span className="text-blue-500 hover:underline cursor-pointer" onClick={() => addToLog(`全仓保证金 = ${totalMarginCross.toFixed(2)}`)}>
+              {totalMarginCross.toFixed(2)}
+            </span>
+          </div>
+          <div className="flex items-center">
+            <span className="mr-1">逐仓保证金:</span>
+            <span className="text-blue-500 hover:underline cursor-pointer" onClick={() => addToLog(`逐仓保证金 = ${totalMarginIsolated.toFixed(2)}`)}>
+              {totalMarginIsolated.toFixed(2)}
+            </span>
+          </div>
+          <div className="flex items-center">
+            <span className="mr-1">可用资金:</span>
+            <span className="text-blue-500 hover:underline cursor-pointer" onClick={() => {
+              addToLog(`可用资金计算公式：当前余额 - 总保证金占用`);
+              addToLog(`计算过程：${currentBalance.toFixed(2)} - ${totalMargin.toFixed(2)} = ${availableBalance.toFixed(2)}`);
+            }}>
+              {availableBalance.toFixed(2)}
+            </span>
+          </div>
+          <div className="flex items-center">
+            <span className="mr-1">未实现盈亏:</span>
+            <span className="text-blue-500 hover:underline cursor-pointer" onClick={() => addToLog(`未实现盈亏总和 = ${totalUnrealizedPnl.toFixed(2)}`)}>
+              {totalUnrealizedPnl.toFixed(2)}
+            </span>
+          </div>
+          <div className="flex items-center">
+            <span className="mr-1">已实现盈亏:</span>
+            <span className="text-blue-500 hover:underline cursor-pointer" onClick={() => addToLog(`已实现盈亏总和 = ${totalRealizedPnl.toFixed(2)}`)}>
+              {totalRealizedPnl.toFixed(2)}
+            </span>
+          </div>
+          <div className="flex items-center text-xs text-gray-500 ml-auto">
+            <span>用户: {currentUser} | 时间: {currentDateTime}</span>
+          </div>
+          <div>
+            <button onClick={logAccountMetrics} className="bg-blue-500 text-white px-3 py-1.5 rounded-md text-sm">
+              显示计算过程
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-    <div className="col-span-1 lg:col-span-1">
-      <label className="block mb-2 text-md">维持保证金率</label>
-      <input 
-        type="number" 
-        value={maintenanceMarginRate} 
-        onChange={e => setMaintenanceMarginRate(parseFloat(e.target.value))} 
-        className="w-full p-2 border rounded-md"
-        onClick={() => addToLog(`维持保证金率设置为 ${maintenanceMarginRate} (${maintenanceMarginRate*100}%)`)}
-      />
-    </div>
-    <div className="col-span-1 lg:col-span-1">
-      <label className="block mb-2 text-md">合约面值</label>
-      <input 
-        type="number" 
-        value={contractValue} 
-        onChange={e => setContractValue(parseFloat(e.target.value))} 
-        className="w-full p-2 border rounded-md" 
-        placeholder="0.0001"
-        onClick={() => addToLog(`合约面值设置为 ${contractValue}`)}
-      />
-    </div>
-    <div className="col-span-1 lg:col-span-1">
-      <label className="block mb-2 text-md">初始余额</label>
-      <input 
-        type="number" 
-        value={initialBalance} 
-        onChange={e => setInitialBalance(parseFloat(e.target.value))} 
-        className="w-full p-2 border rounded-md"
-        onClick={() => addToLog(`初始余额设置为 ${initialBalance}`)}
-      />
-    </div>
-    <div className="col-span-1 lg:col-span-1">
-      <label className="block mb-2 text-md">手续费率</label>
-      <input 
-        type="number" 
-        value={feeRate} 
-        onChange={e => setFeeRate(parseFloat(e.target.value))} 
-        className="w-full p-2 border rounded-md"
-        onClick={() => addToLog(`手续费率设置为 ${feeRate} (${feeRate*100}%)`)}
-      />
-    </div>
-    <div className="col-span-1 lg:col-span-1 flex items-end">
-      <button 
-        onClick={() => {
-          addToLog(`--- 触发参数更改重新计算 ---`);
-          recalculateAllPositions();
-        }} 
-        className="bg-blue-500 text-white px-3 py-2 rounded-md text-sm"
-      >
-        重新计算
-      </button>
-    </div>
-    <div className="col-span-1 lg:col-span-1 flex items-end">
-      <button 
-        onClick={refreshPrice} 
-        className="mr-2 bg-gray-300 px-3 py-2 rounded-md hover:bg-gray-400 text-sm"
-        disabled={isLoading}
-      >
-        {isLoading ? "..." : "刷新价格"}
-      </button>
-      <button 
-        onClick={resetBalance} 
-        className="bg-yellow-500 text-white px-3 py-2 rounded-md text-sm"
-      >
-        重置余额
-      </button>
-    </div>
-  </div>
-
-  {/* 仓位创建区 - 已移除标题，精简布局 */}
-  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 bg-white p-3 md:p-4 border rounded-lg mb-6 shadow-sm w-full">
-    <div className="col-span-1">
-      <label className="block mb-1 text-sm">开仓价格</label>
-      <input 
-        type="number" 
-        value={entryPrice} 
-        onChange={e => setEntryPrice(e.target.value)} 
-        className="w-full p-2 border rounded-md" 
-      />
-    </div>
-    <div className="col-span-1">
-      <label className="block mb-1 text-sm">张数</label>
-      <input 
-        type="number" 
-        value={quantity} 
-        onChange={e => setQuantity(e.target.value)} 
-        className="w-full p-2 border rounded-md" 
-      />
-    </div>
-    <div className="col-span-1">
-      <label className="block mb-1 text-sm">杠杆倍数</label>
-      <input 
-        type="number" 
-        value={leverage} 
-        onChange={e => {
-          setLeverage(parseFloat(e.target.value));
-          addToLog(`杠杆倍数设置为 ${e.target.value}x`);
-        }} 
-        className="w-full p-2 border rounded-md" 
-      />
-    </div>
-    <div className="col-span-1">
-      <label className="block mb-1 text-sm">方向</label>
-      <select 
-        value={direction} 
-        onChange={e => {
-          setDirection(e.target.value);
-          addToLog(`交易方向设置为 ${e.target.value === 'long' ? '多单' : '空单'}`);
-        }} 
-        className="w-full p-2 border rounded-md"
-      >
-        <option value="long">多单</option>
-        <option value="short">空单</option>
-      </select>
-    </div>
-    <div className="col-span-1">
-      <label className="block mb-1 text-sm">仓位类型</label>
-      <select 
-        value={marginType} 
-        onChange={e => {
-          setMarginType(e.target.value);
-          addToLog(`保证金类型设置为 ${e.target.value === 'cross' ? '全仓' : '逐仓'}`);
-        }} 
-        className="w-full p-2 border rounded-md"
-      >
-        <option value="cross">全仓</option>
-        <option value="isolated">逐仓</option>
-      </select>
-    </div>
-    <div className="col-span-1 flex items-end">
-      <button 
-        onClick={createPosition} 
-        className="bg-green-600 text-white px-4 py-2 rounded-md w-full text-base"
-        disabled={!entryPrice || !quantity}
-      >
-        创建持仓
-      </button>
-    </div>
-  </div>
-  
-  {/* 账户信息和持仓列表 - 已调整宽度比例 */}
-  <div className="flex flex-col lg:flex-row gap-6 w-full">
-    <div className="w-full lg:w-1/6 bg-white p-4 md:p-5 border rounded-lg shadow-sm">
-      <h3 className="text-lg font-bold mb-3">账户信息</h3>
-      <div className="grid grid-cols-1 gap-2">
-        <div className="cursor-pointer py-1 px-2 hover:bg-gray-50 rounded-md" onClick={() => addToLog(`初始余额 = ${initialBalance.toFixed(2)}`)}>
-          初始余额：<span className="text-blue-500 hover:underline">{initialBalance.toFixed(2)}</span>
-        </div>
-        <div className="cursor-pointer py-1 px-2 hover:bg-gray-50 rounded-md" onClick={() => addToLog(`当前余额 = ${currentBalance.toFixed(2)}`)}>
-          当前余额：<span className="text-blue-500 hover:underline font-bold">{currentBalance.toFixed(2)}</span>
-        </div>
-        <div className="cursor-pointer py-1 px-2 hover:bg-gray-50 rounded-md" onClick={() => addToLog(`逐仓保证金 = ${totalMarginIsolated.toFixed(2)}`)}>
-          逐仓保证金：<span className="text-blue-500 hover:underline">{totalMarginIsolated.toFixed(2)}</span>
-        </div>
-        <div className="cursor-pointer py-1 px-2 hover:bg-gray-50 rounded-md" onClick={() => addToLog(`全仓保证金 = ${totalMarginCross.toFixed(2)}`)}>
-          全仓保证金：<span className="text-blue-500 hover:underline">{totalMarginCross.toFixed(2)}</span>
-        </div>
-        <div className="cursor-pointer py-1 px-2 hover:bg-gray-50 rounded-md" onClick={() => {
-          addToLog(`总保证金占用计算公式：全仓保证金 + 逐仓保证金`);
-          addToLog(`计算过程：${totalMarginCross.toFixed(2)} + ${totalMarginIsolated.toFixed(2)} = ${totalMargin.toFixed(2)}`);
-        }}>
-          总保证金：<span className="text-blue-500 hover:underline">{totalMargin.toFixed(2)}</span>
-        </div>
-        <div className="cursor-pointer py-1 px-2 hover:bg-gray-50 rounded-md" onClick={() => {
-          addToLog(`可用资金计算公式：当前余额 - 总保证金占用`);
-          addToLog(`计算过程：${currentBalance.toFixed(2)} - ${totalMargin.toFixed(2)} = ${availableBalance.toFixed(2)}`);
-        }}>
-          可用资金：<span className="text-blue-500 hover:underline">{availableBalance.toFixed(2)}</span>
-        </div>
-        <div className="cursor-pointer py-1 px-2 hover:bg-gray-50 rounded-md" onClick={() => addToLog(`未实现盈亏总和 = ${totalUnrealizedPnl.toFixed(2)}`)}>
-          未实现盈亏：<span className="text-blue-500 hover:underline">{totalUnrealizedPnl.toFixed(2)}</span>
-        </div>
-        <div className="cursor-pointer py-1 px-2 hover:bg-gray-50 rounded-md" onClick={() => addToLog(`已实现盈亏总和 = ${totalRealizedPnl.toFixed(2)}`)}>
-          已实现盈亏：<span className="text-blue-500 hover:underline">{totalRealizedPnl.toFixed(2)}</span>
-        </div>
-        <div className="border-t pt-2 mt-2 text-right">
-          <span className="text-xs text-gray-500">用户: {currentUser}</span><br/>
-          <span className="text-xs text-gray-500">时间: {currentDateTime}</span>
-        </div>
-        <button onClick={logAccountMetrics} className="mt-2 bg-blue-500 text-white px-4 py-1.5 rounded-md w-full text-sm">
-          显示计算过程
-        </button>
-      </div>
-    </div>
-
-    <div className="w-full lg:w-5/6 bg-white p-4 md:p-5 border rounded-lg shadow-sm overflow-hidden">
-      <h3 className="text-lg font-bold mb-3">持仓列表</h3>
-      <div className="w-full overflow-x-auto" style={{ minWidth: '100%' }}>
-        <table className="w-full text-sm border table-auto">
-          <thead className="bg-gray-200">
-            <tr>
-              <th className="p-2 md:p-3 border">交易对</th>
-              <th className="p-2 md:p-3 border">方向</th>
-              <th className="p-2 md:p-3 border">类型</th>
-              <th className="p-2 md:p-3 border">杠杆</th>
-              <th className="p-2 md:p-3 border">开仓价</th>
-              <th className="p-2 md:p-3 border">当前价</th>
-              <th className="p-2 md:p-3 border">爆仓价</th>
-              <th className="p-2 md:p-3 border">维持保证金</th>
-              <th className="p-2 md:p-3 border">DEX</th>
-              <th className="p-2 md:p-3 border">未实现盈亏</th>
-              <th className="p-2 md:p-3 border">已实现盈亏</th>
-              <th className="p-2 md:p-3 border">张数</th>
-              <th className="p-2 md:p-3 border">保证金</th>
-              <th className="p-2 md:p-3 border">手续费</th>
-              <th className="p-2 md:p-3 border">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {positions.map((pos, idx) => (
-              <tr key={idx} className={pos.closed ? "bg-gray-100" : ""}>
-                <td className="p-2 md:p-3 border text-center">{pos.symbol}</td>
-                <td className="p-2 md:p-3 border text-center">{translateDirection(pos.direction)}</td>
-                <td className="p-2 md:p-3 border text-center">{translateMarginType(pos.marginType)}</td>
-                <td className="p-2 md:p-3 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => addToLog(`杠杆倍数: ${pos.leverage}x`)}>
-                  {pos.leverage}
-                </td>
-                <td className="p-2 md:p-3 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => addToLog(`开仓价: ${pos.entryPrice}`)}>
-                  {pos.entryPrice}
-                </td>
-                <td className="p-2 md:p-3 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => addToLog(`当前价: ${pos.currentPrice}`)}>
-                  {pos.currentPrice}
-                </td>
-                <td 
-                  className="p-2 md:p-3 border text-blue-500 text-center cursor-pointer hover:underline" 
-                  onClick={() => logCalculation('liq', pos)}
-                >
-                  {pos.liquidationPrice}
-                </td>
-                <td 
-                  className="p-2 md:p-3 border text-blue-500 text-center cursor-pointer hover:underline" 
-                  onClick={() => logCalculation('maintenanceMargin', pos)}
-                >
-                  {pos.maintenanceMargin}
-                </td>
-                <td 
-                  className="p-2 md:p-3 border text-blue-500 text-center cursor-pointer hover:underline" 
-                  onClick={() => logCalculation('dex', pos)}
-                >
-                  {pos.dex}
-                </td>
-                <td className="p-2 md:p-3 border text-blue-500 text-center cursor-pointer hover:underline" onClick={() => logCalculation('unrealizedPnl', pos)}>
-                  {pos.unrealizedPnl}
-                </td>
-                <td className="p-2 md:p-3 border text-center">
-                  {pos.realizedPnl ? (
-                    <span className={`text-blue-500 hover:underline cursor-pointer ${parseFloat(pos.realizedPnl) >= 0 ? 'text-green-500' : 'text-red-500'}`} onClick={() => logCalculation('realizedPnl', pos)}>
-                      {parseFloat(pos.realizedPnl) >= 0 ? '+' : ''}{pos.realizedPnl}
-                    </span>
-                  ) : "-"}
-                </td>
-                <td className="p-2 md:p-3 border text-center">{pos.quantity}</td>
-                <td className="p-2 md:p-3 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => logCalculation('margin', pos)}>
-                  {pos.margin}
-                </td>
-                <td className="p-2 md:p-3 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => logCalculation('fee', pos)}>
-                  {pos.closed ? pos.totalFee : pos.openFee}
-                </td>
-                <td className="p-2 md:p-3 border text-center">
-                  {pos.closed ? (
-                    <span className="text-gray-400">
-                      已平仓@{pos.closePrice}
-                    </span>
-                  ) : (
-                    <div className="flex flex-col items-center gap-1">
-                      <button onClick={() => closePosition(idx)} className="bg-red-500 text-white px-2 py-1 rounded-md">平仓</button>
-                      <button onClick={() => deletePosition(idx)} className="bg-gray-500 text-white px-2 py-1 rounded-md">删除</button>
-                    </div>
-                  )}
-                </td>
+      
+      {/* 持仓列表 */}
+      <div className="bg-white p-4 md:p-5 border rounded-lg shadow-sm w-full mb-6">
+        <h3 className="text-lg font-bold mb-3">持仓列表</h3>
+        <div className="w-full overflow-x-auto" style={{ minWidth: '100%' }}>
+          <table className="w-full text-sm border table-auto">
+            <thead className="bg-gray-200">
+              <tr>
+                <th className="p-2 md:p-3 border">交易对</th>
+                <th className="p-2 md:p-3 border">方向</th>
+                <th className="p-2 md:p-3 border">类型</th>
+                <th className="p-2 md:p-3 border">杠杆</th>
+                <th className="p-2 md:p-3 border">开仓价</th>
+                <th className="p-2 md:p-3 border">当前价</th>
+                <th className="p-2 md:p-3 border">爆仓价</th>
+                <th className="p-2 md:p-3 border">维持保证金</th>
+                <th className="p-2 md:p-3 border">DEX</th>
+                <th className="p-2 md:p-3 border">仓位价值</th>
+                <th className="p-2 md:p-3 border">未实现盈亏</th>
+                <th className="p-2 md:p-3 border">已实现盈亏</th>
+                <th className="p-2 md:p-3 border">张数</th>
+                <th className="p-2 md:p-3 border">保证金</th>
+                <th className="p-2 md:p-3 border">开仓手续费</th>
+                <th className="p-2 md:p-3 border">平仓手续费</th>
+                <th className="p-2 md:p-3 border">操作</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  {/* 日志控制台 */}
-  <div className="mt-6 bg-black text-green-400 p-4 md:p-5 rounded-lg font-mono text-sm h-auto md:h-[350px]">
-    <div className="flex flex-wrap justify-between items-center mb-3">
-      <strong className="text-lg flex-grow">计算日志:</strong>
-      <div className="flex gap-2 items-center">
-        <span className="text-xs text-gray-400 hidden md:inline-block">用户: {currentUser} | 时间: {currentDateTime}</span>
-        <button onClick={clearLogs} className="bg-gray-700 text-white px-3 py-1.5 rounded-md">清空日志</button>
-      </div>
-    </div>
-    <div className="h-[200px] md:h-[280px] overflow-y-auto pr-1 md:pr-4" style={{ scrollbarWidth: 'thin' }}>
-      {logs.map((line, i) => (
-        <div key={i} className="whitespace-pre-wrap mb-1 break-words">
-          {line.startsWith('---') ? 
-            <div className="text-yellow-300 font-bold mt-3 mb-1">{line}</div> : 
-            <div>{line}</div>
-          }
+            </thead>
+            <tbody>
+              {positions.map((pos, idx) => (
+                <tr key={idx} className={pos.closed ? "bg-gray-100" : ""}>
+                  <td className="p-2 md:p-3 border text-center">{pos.symbol}</td>
+                  <td className="p-2 md:p-3 border text-center">{translateDirection(pos.direction)}</td>
+                  <td className="p-2 md:p-3 border text-center">{translateMarginType(pos.marginType)}</td>
+                  <td className="p-2 md:p-3 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => addToLog(`杠杆倍数: ${pos.leverage}x`)}>
+                    {pos.leverage}
+                  </td>
+                  <td className="p-2 md:p-3 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => addToLog(`开仓价: ${pos.entryPrice}`)}>
+                    {pos.entryPrice}
+                  </td>
+                  <td className="p-2 md:p-3 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => addToLog(`当前价: ${pos.currentPrice}`)}>
+                    {pos.currentPrice}
+                  </td>
+                  <td 
+                    className="p-2 md:p-3 border text-blue-500 text-center cursor-pointer hover:underline" 
+                    onClick={() => pos.closed ? addToLog('该仓位已平仓，无爆仓价格') : logCalculation('liq', pos)}
+                  >
+                    {pos.closed ? "-" : pos.liquidationPrice}
+                  </td>
+                  <td 
+                    className="p-2 md:p-3 border text-blue-500 text-center cursor-pointer hover:underline" 
+                    onClick={() => logCalculation('maintenanceMargin', pos)}
+                  >
+                    {pos.maintenanceMargin}
+                  </td>
+                  <td 
+                    className="p-2 md:p-3 border text-blue-500 text-center cursor-pointer hover:underline" 
+                    onClick={() => pos.closed ? addToLog('该仓位已平仓，无DEX值') : logCalculation('dex', pos)}
+                  >
+                    {pos.closed ? "-" : pos.dex}
+                  </td>
+                  <td 
+                    className="p-2 md:p-3 border text-blue-500 text-center cursor-pointer hover:underline" 
+                    onClick={() => logCalculation('positionValue', pos)}
+                  >
+                    {pos.positionValue}
+                  </td>
+                  <td 
+                    className="p-2 md:p-3 border text-center cursor-pointer text-blue-500 hover:underline" 
+                    onClick={() => logCalculation('unrealizedPnl', pos)}
+                  >
+                    {pos.closed ? "0.00" : pos.unrealizedPnl}
+                  </td>
+                  <td className="p-2 md:p-3 border text-center">
+                    {pos.realizedPnl ? (
+                      <span className={`text-blue-500 hover:underline cursor-pointer ${parseFloat(pos.realizedPnl) >= 0 ? 'text-green-500' : 'text-red-500'}`} onClick={() => logCalculation('realizedPnl', pos)}>
+                        {parseFloat(pos.realizedPnl) >= 0 ? '+' : ''}{pos.realizedPnl}
+                      </span>
+                    ) : "-"}
+                  </td>
+                  <td className="p-2 md:p-3 border text-center">{pos.quantity}</td>
+                  <td className="p-2 md:p-3 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => logCalculation('margin', pos)}>
+                    {pos.margin}
+                  </td>
+                  <td 
+                    className="p-2 md:p-3 border text-center cursor-pointer text-blue-500 hover:underline" 
+                    onClick={() => logCalculation('openFee', pos)}
+                  >
+                    {pos.openFee}
+                  </td>
+                  <td 
+                    className="p-2 md:p-3 border text-center cursor-pointer text-blue-500 hover:underline" 
+                    onClick={() => logCalculation('closeFee', pos)}
+                  >
+                    {pos.closed ? pos.closeFee : "0.00"}
+                  </td>
+                  <td className="p-2 md:p-3 border text-center">
+                    {pos.closed ? (
+                      <span className="text-gray-400">
+                        已平仓@{pos.closePrice}
+                      </span>
+                    ) : (
+                      <div className="flex flex-col items-center gap-1">
+                        <button onClick={() => closePosition(idx)} className="bg-red-500 text-white px-2 py-1 rounded-md">平仓</button>
+                        <button onClick={() => deletePosition(idx)} className="bg-gray-500 text-white px-2 py-1 rounded-md">删除</button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      ))}
+      </div>
+
+      {/* 日志控制台 */}
+      <div className="bg-black text-green-400 p-4 md:p-5 rounded-lg font-mono text-sm h-auto md:h-[350px]">
+        <div className="flex flex-wrap justify-between items-center mb-3">
+          <strong className="text-lg flex-grow">计算日志:</strong>
+          <div className="flex gap-2 items-center">
+            <button onClick={clearLogs} className="bg-gray-700 text-white px-3 py-1.5 rounded-md">清空日志</button>
+          </div>
+        </div>
+        <div className="h-[200px] md:h-[280px] overflow-y-auto pr-1 md:pr-4" style={{ scrollbarWidth: 'thin' }}>
+          {logs.map((line, i) => (
+            <div key={i} className="whitespace-pre-wrap mb-1 break-words">
+              {line.startsWith('---') ? 
+                <div className="text-yellow-300 font-bold mt-3 mb-1">{line}</div> : 
+                <div>{line}</div>
+              }
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
-  </div>
-</div>
-    </>
+        
   );
 }
