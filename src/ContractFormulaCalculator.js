@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 export default function ContractFormulaCalculator() {
-  const [symbol, setSymbol] = useState('BTC/USDT');
+  const [symbol, setSymbol] = useState('btc_usdt');
   const [currentPrice, setCurrentPrice] = useState(20000);
   const [maintenanceMarginRate, setMaintenanceMarginRate] = useState(0.005);
   const [contractValue, setContractValue] = useState(0.0001);
@@ -17,78 +17,328 @@ export default function ContractFormulaCalculator() {
   const [marginType, setMarginType] = useState('cross');
   const [positions, setPositions] = useState([]);
   
-  // 交易对列表
-  const [availableSymbols, setAvailableSymbols] = useState([]);
+  // 自动刷新相关状态
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // 合约列表和行情数据
+  const [contractList, setContractList] = useState([]);
+  const [marketData, setMarketData] = useState([]);
+  const [selectedContract, setSelectedContract] = useState(null);
+  
+  // 自动刷新定时器引用
+  const refreshTimerRef = useRef(null);
 
   // 当前日期和时间，用户名
-  const currentDateTime = "2025-05-15 16:19:59";
+  const currentDateTime = "2025-05-16 02:02:43";
   const currentUser = "phyllaga";
 
-  // 获取交易对列表和最新价格
+  // 静态合约数据
+  const contractsData = [
+    {
+      "id": 1,
+      "symbol": "btc_usdt",
+      "contractType": "PERPETUAL",
+      "underlyingType": "U_BASED",
+      "contractSize": "0.0001",
+      "tradeSwitch": true,
+      "state": 0,
+      "initLeverage": 100,
+      "initPositionType": "CROSSED",
+      "baseCoin": "btc",
+      "quoteCoin": "usdt",
+      "baseCoinPrecision": 6,
+      "baseCoinDisplayPrecision": 5,
+      "quoteCoinPrecision": 4,
+      "quoteCoinDisplayPrecision": 4,
+      "quantityPrecision": 0,
+      "pricePrecision": 1,
+      "enName": "BTCUSDT ",
+      "cnName": "BTCUSDT 永续",
+      "minStepPrice": "0.1"
+    },
+    {
+      "id": 2,
+      "symbol": "eth_usdt",
+      "contractType": "PERPETUAL",
+      "underlyingType": "U_BASED",
+      "contractSize": "0.01",
+      "tradeSwitch": true,
+      "state": 0,
+      "initLeverage": 100,
+      "initPositionType": "CROSSED",
+      "baseCoin": "eth",
+      "quoteCoin": "usdt",
+      "baseCoinPrecision": 8,
+      "baseCoinDisplayPrecision": 4,
+      "quoteCoinPrecision": 4,
+      "quoteCoinDisplayPrecision": 4,
+      "quantityPrecision": 0,
+      "pricePrecision": 2,
+      "enName": "ETHUSDT ",
+      "cnName": "ETHUSDT 永续",
+      "minStepPrice": "0.01"
+    },
+    {
+      "id": 4,
+      "symbol": "xrp_usdt",
+      "contractType": "PERPETUAL",
+      "underlyingType": "U_BASED",
+      "contractSize": "10",
+      "tradeSwitch": true,
+      "state": 0,
+      "initLeverage": 200,
+      "initPositionType": "CROSSED",
+      "baseCoin": "xrp",
+      "quoteCoin": "usdt",
+      "baseCoinPrecision": 6,
+      "baseCoinDisplayPrecision": 5,
+      "quoteCoinPrecision": 4,
+      "quoteCoinDisplayPrecision": 4,
+      "quantityPrecision": 0,
+      "pricePrecision": 4,
+      "enName": "xrpusdt",
+      "cnName": "xrpusdt",
+      "minStepPrice": "0.0001"
+    },
+    {
+      "id": 5,
+      "symbol": "sol_usdt",
+      "contractType": "PERPETUAL",
+      "underlyingType": "U_BASED",
+      "contractSize": "0.01",
+      "tradeSwitch": true,
+      "state": 0,
+      "initLeverage": 200,
+      "initPositionType": "CROSSED",
+      "baseCoin": "sol",
+      "quoteCoin": "usdt",
+      "baseCoinPrecision": 6,
+      "baseCoinDisplayPrecision": 4,
+      "quoteCoinPrecision": 4,
+      "quoteCoinDisplayPrecision": 4,
+      "quantityPrecision": 0,
+      "pricePrecision": 2,
+      "enName": "solusdt",
+      "cnName": "solusdt",
+      "minStepPrice": "0.01"
+    },
+    {
+      "id": 7,
+      "symbol": "ltc_usdt",
+      "contractType": "PERPETUAL",
+      "underlyingType": "U_BASED",
+      "contractSize": "0.1",
+      "tradeSwitch": true,
+      "state": 0,
+      "initLeverage": 100,
+      "initPositionType": "CROSSED",
+      "baseCoin": "ltc",
+      "quoteCoin": "usdt",
+      "baseCoinPrecision": 6,
+      "baseCoinDisplayPrecision": 4,
+      "quoteCoinPrecision": 4,
+      "quoteCoinDisplayPrecision": 4,
+      "quantityPrecision": 0,
+      "pricePrecision": 2,
+      "enName": "ltcusdt",
+      "cnName": "ltcusdt",
+      "minStepPrice": "0.01"
+    },
+    {
+      "id": 8,
+      "symbol": "bnb_usdt",
+      "contractType": "PERPETUAL",
+      "underlyingType": "U_BASED",
+      "contractSize": "0.01",
+      "tradeSwitch": true,
+      "state": 0,
+      "initLeverage": 200,
+      "initPositionType": "CROSSED",
+      "baseCoin": "bnb",
+      "quoteCoin": "usdt",
+      "baseCoinPrecision": 6,
+      "baseCoinDisplayPrecision": 4,
+      "quoteCoinPrecision": 4,
+      "quoteCoinDisplayPrecision": 4,
+      "quantityPrecision": 0,
+      "pricePrecision": 2,
+      "enName": "bnbusdt",
+      "cnName": "bnbusdt",
+      "minStepPrice": "0.01"
+    },
+    {
+      "id": 9,
+      "symbol": "doge_usdt",
+      "contractType": "PERPETUAL",
+      "underlyingType": "U_BASED",
+      "contractSize": "10",
+      "tradeSwitch": true,
+      "state": 0,
+      "initLeverage": 200,
+      "initPositionType": "CROSSED",
+      "baseCoin": "doge",
+      "quoteCoin": "usdt",
+      "baseCoinPrecision": 6,
+      "baseCoinDisplayPrecision": 4,
+      "quoteCoinPrecision": 4,
+      "quoteCoinDisplayPrecision": 4,
+      "quantityPrecision": 0,
+      "pricePrecision": 5,
+      "enName": "dogeusdt",
+      "cnName": "dogeusdt",
+      "minStepPrice": "0.00001"
+    },
+    {
+      "id": 10,
+      "symbol": "dot_usdt",
+      "contractType": "PERPETUAL",
+      "underlyingType": "U_BASED",
+      "contractSize": "0.1",
+      "tradeSwitch": true,
+      "state": 0,
+      "initLeverage": 100,
+      "initPositionType": "CROSSED",
+      "baseCoin": "dot",
+      "quoteCoin": "usdt",
+      "baseCoinPrecision": 6,
+      "baseCoinDisplayPrecision": 8,
+      "quoteCoinPrecision": 4,
+      "quoteCoinDisplayPrecision": 4,
+      "quantityPrecision": 0,
+      "pricePrecision": 3,
+      "enName": "dotusdt",
+      "cnName": "dotusdt",
+      "minStepPrice": "0.001"
+    }
+  ];
+
+  // 自动刷新价格定时器
   useEffect(() => {
-    fetchSymbols();
+    // 清除之前的定时器
+    if (refreshTimerRef.current) {
+      clearInterval(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+    
+    // 如果启用自动刷新，设置新的定时器
+    if (autoRefresh) {
+      addToLog(`--- 已开启自动刷新价格 (每秒) ---`);
+      refreshTimerRef.current = setInterval(() => {
+        fetchMarketData(true);
+      }, 1000);
+    } else if (refreshTimerRef.current) {
+      addToLog(`--- 已关闭自动刷新价格 ---`);
+    }
+    
+    // 组件卸载时清除定时器
+    return () => {
+      if (refreshTimerRef.current) {
+        clearInterval(refreshTimerRef.current);
+      }
+    };
+  }, [autoRefresh]);
+
+  // 初始化时设置合约列表
+  useEffect(() => {
+    setContractList(contractsData);
+    fetchMarketData();
   }, []);
-  
-  // 获取交易对列表
-  const fetchSymbols = async () => {
-    setIsLoading(true);
-    addToLog(`--- 正在获取交易对列表 ---`);
+
+  // 获取行情数据
+  const fetchMarketData = async (isAutoRefresh = false) => {
+    // 如果是手动刷新或首次加载，显示加载状态
+    if (!isAutoRefresh) {
+      setIsLoading(true);
+      addToLog(`--- 正在获取行情数据 ---`);
+    }
     
     try {
       const response = await fetch('https://mgbx.com/futures/fapi/market/v1/public/m/allticker');
       const data = await response.json();
       
       if (data && data.data && Array.isArray(data.data)) {
-        // 整理交易对数据
-        const symbols = data.data.map(item => ({
-          symbol: item.symbol,
-          last: parseFloat(item.last)
-        })).sort((a, b) => a.symbol.localeCompare(b.symbol));
+        setMarketData(data.data);
         
-        setAvailableSymbols(symbols);
-        addToLog(`成功获取 ${symbols.length} 个交易对`);
+        // 更新最后刷新时间
+        const now = new Date();
+        const timeString = now.toLocaleTimeString();
+        setLastUpdated(timeString);
+        
+        // 如果不是自动刷新，添加日志
+        if (!isAutoRefresh) {
+          addToLog(`成功获取 ${data.data.length} 个交易对行情数据`);
+        }
+        
+        // 如果已经选择了合约，更新价格
+        if (selectedContract) {
+          updatePriceForSelectedContract(selectedContract.symbol, data.data, isAutoRefresh);
+        }
       }
     } catch (error) {
-      addToLog(`获取交易对列表失败: ${error.message}`);
+      if (!isAutoRefresh) {
+        addToLog(`获取行情数据失败: ${error.message}`);
+      }
     }
     
-    setIsLoading(false);
+    // 手动刷新时才需要设置加载状态为false
+    if (!isAutoRefresh) {
+      setIsLoading(false);
+    }
   };
   
-  // 处理交易对选择
-  const handleSymbolChange = (e) => {
-    const selectedSymbol = e.target.value;
-    const selectedData = availableSymbols.find(s => s.symbol === selectedSymbol);
+  // 更新所选合约的价格和合约面值
+  const updatePriceForSelectedContract = (symbolCode, marketDataArray, isAutoRefresh = false) => {
+    // 查找匹配的行情数据
+    const matchingMarket = marketDataArray.find(item => item.symbol === symbolCode);
     
-    if (selectedData) {
-      setSymbol(selectedData.symbol);
-      
-      // 更新最新价格
-      const price = selectedData.last;
+    if (matchingMarket) {
+      const price = parseFloat(matchingMarket.last);
       setCurrentPrice(price);
       
-      // 计算合约面值（最小精度）
-      const priceStr = price.toString();
-      let minPrecision;
-      
-      if (priceStr.includes('.')) {
-        const decimalPart = priceStr.split('.')[1];
-        minPrecision = Math.pow(10, -decimalPart.length);
+      if (!isAutoRefresh) {
+        // 查找合约数据来获取contractSize
+        const contract = contractList.find(c => c.symbol === symbolCode);
+        if (contract) {
+          const contractSizeValue = parseFloat(contract.contractSize);
+          setContractValue(contractSizeValue);
+          setSelectedContract(contract);
+          
+          // 设置杠杆倍数为合约初始杠杆
+          setLeverage(contract.initLeverage);
+          
+          addToLog(`更新交易对 ${symbolCode} 信息:`);
+          addToLog(`最新价格: ${price}`);
+          addToLog(`面值(contractSize): ${contractSizeValue}`);
+          addToLog(`初始杠杆: ${contract.initLeverage}x`);
+        }
       } else {
-        minPrecision = 1;
+        // 自动刷新时只记录一条简洁的日志
+        // addToLog(`自动更新价格: ${price} (${new Date().toLocaleTimeString()})`);
       }
       
-      setContractValue(minPrecision);
-      
-      addToLog(`--- 交易对已切换 ---`);
-      addToLog(`交易对: ${selectedData.symbol}`);
-      addToLog(`最新价格: ${price}`);
-      addToLog(`面值(最小精度): ${minPrecision}`);
-      
-      // 重新计算所有仓位
-      setTimeout(() => recalculateAllPositions(), 100);
+      // 无论是自动还是手动，只要价格变化就重新计算所有仓位
+      if (positions.length > 0) {
+        recalculateAllPositions(isAutoRefresh);
+      }
     }
+  };
+
+  // 处理合约选择
+  const handleContractChange = (e) => {
+    const selectedSymbol = e.target.value;
+    if (!selectedSymbol) return;
+    
+    setSymbol(selectedSymbol);
+    
+    // 更新价格和合约面值
+    updatePriceForSelectedContract(selectedSymbol, marketData);
+  };
+  
+  // 处理自动刷新开关
+  const toggleAutoRefresh = () => {
+    setAutoRefresh(!autoRefresh);
   };
 
   // 记录计算过程到日志
@@ -316,42 +566,60 @@ export default function ContractFormulaCalculator() {
     return pnl;
   };
 
-  const recalculateAllPositions = () => {
-    addToLog(`--- 重新计算所有仓位 ---`);
-    addToLog(`用户: ${currentUser}`);
-    addToLog(`时间: ${currentDateTime} (UTC)`);
+  const recalculateAllPositions = (isAutoRefresh = false) => {
+    if (!isAutoRefresh) {
+      addToLog(`--- 重新计算所有仓位 ---`);
+      addToLog(`用户: ${currentUser}`);
+      addToLog(`时间: ${currentDateTime} (UTC)`);
+    }
     
     // 重新计算所有仓位的基础值：仓位价值、保证金、手续费、维持保证金和未实现盈亏
     let updatedPositions = positions.map(pos => {
       if (pos.closed) return pos;
       
-      addToLog(`重新计算仓位: ${pos.symbol} ${translateDirection(pos.direction)} ${pos.quantity}张 @${pos.entryPrice}`);
+      if (!isAutoRefresh) {
+        addToLog(`重新计算仓位: ${pos.symbol} ${translateDirection(pos.direction)} ${pos.quantity}张 @${pos.entryPrice}`);
+      }
       
       const positionValue = pos.quantity * contractValue * pos.entryPrice;
-      addToLog(`仓位价值计算公式：数量 × 合约面值 × 开仓价`);
-      addToLog(`计算过程：${pos.quantity} × ${contractValue} × ${pos.entryPrice} = ${positionValue.toFixed(4)}`);
+      
+      if (!isAutoRefresh) {
+        addToLog(`仓位价值计算公式：数量 × 合约面值 × 开仓价`);
+        addToLog(`计算过程：${pos.quantity} × ${contractValue} × ${pos.entryPrice} = ${positionValue.toFixed(4)}`);
+      }
       
       const margin = positionValue / pos.leverage;
-      addToLog(`保证金计算公式：仓位价值 ÷ 杠杆`);
-      addToLog(`计算过程：${positionValue.toFixed(4)} ÷ ${pos.leverage} = ${margin.toFixed(4)}`);
+      
+      if (!isAutoRefresh) {
+        addToLog(`保证金计算公式：仓位价值 ÷ 杠杆`);
+        addToLog(`计算过程：${positionValue.toFixed(4)} ÷ ${pos.leverage} = ${margin.toFixed(4)}`);
+      }
       
       const openFee = positionValue * feeRate;
-      addToLog(`开仓手续费计算公式：仓位价值 × 手续费率`);
-      addToLog(`计算过程：${positionValue.toFixed(4)} × ${feeRate} = ${openFee.toFixed(4)}`);
+      
+      if (!isAutoRefresh) {
+        addToLog(`开仓手续费计算公式：仓位价值 × 手续费率`);
+        addToLog(`计算过程：${positionValue.toFixed(4)} × ${feeRate} = ${openFee.toFixed(4)}`);
+      }
       
       // 计算维持保证金
       const maintenanceMargin = pos.quantity * pos.entryPrice * contractValue * maintenanceMarginRate;
-      addToLog(`维持保证金计算公式：持仓张数 × 开仓均价 × 面值 × 维持保证金率`);
-      addToLog(`计算过程：${pos.quantity} × ${pos.entryPrice} × ${contractValue} × ${maintenanceMarginRate} = ${maintenanceMargin.toFixed(4)}`);
+      
+      if (!isAutoRefresh) {
+        addToLog(`维持保证金计算公式：持仓张数 × 开仓均价 × 面值 × 维持保证金率`);
+        addToLog(`计算过程：${pos.quantity} × ${pos.entryPrice} × ${contractValue} × ${maintenanceMarginRate} = ${maintenanceMargin.toFixed(4)}`);
+      }
       
       // 计算未实现盈亏
       const delta = pos.direction === 'long' ? currentPrice - pos.entryPrice : pos.entryPrice - currentPrice;
       const unrealizedPnl = (delta * pos.quantity * contractValue).toFixed(2);
       
-      addToLog(`未实现盈亏计算公式：${pos.direction === 'long' ? '(当前价 - 开仓价)' : '(开仓价 - 当前价)'} × 数量 × 合约面值`);
-      addToLog(`计算过程：${pos.direction === 'long' ? `(${currentPrice} - ${pos.entryPrice})` : `(${pos.entryPrice} - ${currentPrice})`} × ${pos.quantity} × ${contractValue}`);
-      addToLog(`= ${delta.toFixed(4)} × ${pos.quantity} × ${contractValue}`);
-      addToLog(`= ${unrealizedPnl}`);
+      if (!isAutoRefresh) {
+        addToLog(`未实现盈亏计算公式：${pos.direction === 'long' ? '(当前价 - 开仓价)' : '(开仓价 - 当前价)'} × 数量 × 合约面值`);
+        addToLog(`计算过程：${pos.direction === 'long' ? `(${currentPrice} - ${pos.entryPrice})` : `(${pos.entryPrice} - ${currentPrice})`} × ${pos.quantity} × ${contractValue}`);
+        addToLog(`= ${delta.toFixed(4)} × ${pos.quantity} × ${contractValue}`);
+        addToLog(`= ${unrealizedPnl}`);
+      }
       
       return {
         ...pos,
@@ -365,26 +633,34 @@ export default function ContractFormulaCalculator() {
     });
     
     // 计算所有仓位的DEX
-    addToLog(`--- 更新所有仓位DEX ---`);
+    if (!isAutoRefresh) {
+      addToLog(`--- 更新所有仓位DEX ---`);
+    }
+    
     const positionsWithDex = calculateAllDEX(updatedPositions);
     
     // 基于更新的DEX计算爆仓价
-    addToLog(`--- 计算爆仓价格 ---`);
+    if (!isAutoRefresh) {
+      addToLog(`--- 计算爆仓价格 ---`);
+    }
+    
     const finalPositions = calculateLiquidationPrices(positionsWithDex);
     
     // 显示每个仓位的DEX和爆仓价更新
-    finalPositions.filter(p => !p.closed).forEach(pos => {
-      const positionValue = parseFloat(pos.positionValue);
-      
-      addToLog(`仓位: ${pos.symbol} ${translateDirection(pos.direction)} ${pos.quantity}张:`);
-      addToLog(`  DEX: ${pos.dex}`);
-      
-      if (pos.direction === 'long') {
-        addToLog(`  多仓爆仓价计算: (${positionValue.toFixed(4)} - ${pos.dex}) ÷ (${pos.quantity} × ${contractValue}) = ${pos.liquidationPrice}`);
-      } else {
-        addToLog(`  空仓爆仓价计算: (${positionValue.toFixed(4)} + ${pos.dex}) ÷ (${pos.quantity} × ${contractValue}) = ${pos.liquidationPrice}`);
-      }
-    });
+    if (!isAutoRefresh) {
+      finalPositions.filter(p => !p.closed).forEach(pos => {
+        const positionValue = parseFloat(pos.positionValue);
+        
+        addToLog(`仓位: ${pos.symbol} ${translateDirection(pos.direction)} ${pos.quantity}张:`);
+        addToLog(`  DEX: ${pos.dex}`);
+        
+        if (pos.direction === 'long') {
+          addToLog(`  多仓爆仓价计算: (${positionValue.toFixed(4)} - ${pos.dex}) ÷ (${pos.quantity} × ${contractValue}) = ${pos.liquidationPrice}`);
+        } else {
+          addToLog(`  空仓爆仓价计算: (${positionValue.toFixed(4)} + ${pos.dex}) ÷ (${pos.quantity} × ${contractValue}) = ${pos.liquidationPrice}`);
+        }
+      });
+    }
     
     setPositions(finalPositions);
   };
@@ -558,6 +834,17 @@ export default function ContractFormulaCalculator() {
   const translateDirection = (dir) => dir === 'long' ? '多单' : '空单';
   const translateMarginType = (type) => type === 'cross' ? '全仓' : '逐仓';
 
+  // 手动刷新价格
+  const refreshPrice = async () => {
+    addToLog(`--- 手动刷新行情价格 ---`);
+    try {
+      await fetchMarketData();
+      addToLog(`行情价格刷新成功`);
+    } catch (error) {
+      addToLog(`行情价格刷新失败: ${error.message}`);
+    }
+  };
+
   const accountInfo = () => {
     const totalMarginCross = positions.filter(p => p.marginType === 'cross' && !p.closed).reduce((sum, p) => sum + parseFloat(p.margin), 0);
     const totalMarginIsolated = positions.filter(p => p.marginType === 'isolated' && !p.closed).reduce((sum, p) => sum + parseFloat(p.margin), 0);
@@ -700,17 +987,6 @@ export default function ContractFormulaCalculator() {
     }
   };
 
-  const refreshPrice = () => {
-    const selectedData = availableSymbols.find(s => s.symbol === symbol);
-    if (selectedData) {
-      setCurrentPrice(selectedData.last);
-      addToLog(`已刷新当前价格: ${selectedData.last}`);
-      recalculateAllPositions();
-    } else {
-      addToLog(`无法刷新价格，请先选择交易对`);
-    }
-  };
-
   useEffect(() => {
     recalculateAllPositions();
   }, [currentPrice, maintenanceMarginRate, feeRate]);
@@ -732,25 +1008,19 @@ export default function ContractFormulaCalculator() {
             <div className="flex gap-2">
               <select
                 value={symbol}
-                onChange={handleSymbolChange}
+                onChange={handleContractChange}
                 className="w-full p-2 border rounded"
                 disabled={isLoading}
               >
-                {availableSymbols.length === 0 ? (
-                  <option value="">加载中...</option>
-                ) : (
-                  <>
-                    <option value="">选择交易对</option>
-                    {availableSymbols.map(s => (
-                      <option key={s.symbol} value={s.symbol}>
-                        {s.symbol} ({s.last})
-                      </option>
-                    ))}
-                  </>
-                )}
+                <option value="">选择交易对</option>
+                {contractList.map(contract => (
+                  <option key={contract.id} value={contract.symbol}>
+                    {contract.enName} ({contract.baseCoin}/{contract.quoteCoin})
+                  </option>
+                ))}
               </select>
               <button 
-                onClick={fetchSymbols} 
+                onClick={refreshPrice} 
                 className="bg-gray-300 px-2 py-1 rounded hover:bg-gray-400"
                 disabled={isLoading}
               >
@@ -760,20 +1030,39 @@ export default function ContractFormulaCalculator() {
           </div>
           <div>
             <label className="block mb-1">当前价格</label>
-            <div className="flex gap-2">
-              <input 
-                type="number" 
-                value={currentPrice} 
-                onChange={e => setCurrentPrice(parseFloat(e.target.value))} 
-                className="w-full p-2 border rounded" 
-                onClick={() => addToLog(`当前价格设置为 ${currentPrice}`)}
-              />
-              <button 
-                onClick={refreshPrice} 
-                className="bg-gray-300 px-2 py-1 rounded hover:bg-gray-400"
-              >
-                刷新价格
-              </button>
+            <div className="flex flex-col gap-1">
+              <div className="flex gap-2">
+                <input 
+                  type="number" 
+                  value={currentPrice} 
+                  onChange={e => setCurrentPrice(parseFloat(e.target.value))} 
+                  className="w-full p-2 border rounded" 
+                  disabled={autoRefresh}
+                />
+                <button 
+                  onClick={refreshPrice} 
+                  className="bg-gray-300 px-2 py-1 rounded hover:bg-gray-400"
+                  disabled={autoRefresh || isLoading}
+                >
+                  刷新价格
+                </button>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <label className="flex items-center cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={autoRefresh} 
+                    onChange={toggleAutoRefresh} 
+                    className="mr-1"
+                  />
+                  自动刷新
+                </label>
+                {autoRefresh && (
+                  <span className="text-green-600">
+                    {lastUpdated ? `最后更新: ${lastUpdated}` : "准备更新..."}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <div>
@@ -791,7 +1080,7 @@ export default function ContractFormulaCalculator() {
             <input 
               type="number" 
               value={contractValue} 
-              onChange={e => setContractValue(parseFloat(e.target.value))} 
+              onChange={e => setContractValue(parseFloat(e.target.value))}
               className="w-full p-2 border rounded" 
               placeholder="0.0001"
               onClick={() => addToLog(`合约面值设置为 ${contractValue}`)}
@@ -985,7 +1274,7 @@ export default function ContractFormulaCalculator() {
                   <td className="p-2 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => addToLog(`杠杆倍数: ${pos.leverage}x`)}>
                     {pos.leverage}
                   </td>
-                                    <td className="p-2 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => addToLog(`开仓价: ${pos.entryPrice}`)}>
+                  <td className="p-2 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => addToLog(`开仓价: ${pos.entryPrice}`)}>
                     {pos.entryPrice}
                   </td>
                   <td className="p-2 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => addToLog(`当前价: ${pos.currentPrice}`)}>
