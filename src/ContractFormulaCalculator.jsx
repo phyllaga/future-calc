@@ -207,6 +207,7 @@ export default function ContractFormulaCalculator() {
       feeRate,
       maintenanceMarginRate,
       addToLog,
+      dex:0,
       currentDateTime,
       currentUser
     });
@@ -228,7 +229,7 @@ export default function ContractFormulaCalculator() {
     });
 
     setPositions(finalPositions);
-    addToLog(`仓位创建成功: ${symbol} ${translateDirection(direction)} ${quantity}张 @${entryPrice}，当前余额保持为 ${currentBalance.toFixed(4)}`);
+    addToLog(`仓位创建成功: ${symbol} ${translateDirection(direction)} ${quantity}张 @${entryPrice}，当前余额保持为 ${currentBalance?.toFixed(4)}`);
 
     // 清空输入框
     setEntryPrice('');
@@ -324,9 +325,9 @@ export default function ContractFormulaCalculator() {
         // 详细展示这笔交易对余额的影响
         addToLog(`\n[${index + 1}] ${pos.symbol} ${translateDirection(pos.direction)} ${pos.quantity}张`);
         addToLog(`  开仓价: ${pos.entryPrice} → 平仓价: ${pos.closePrice}`);
-        addToLog(`  已实现盈亏: ${posRealizedPnl >= 0 ? '+' : ''}${posRealizedPnl.toFixed(4)}`);
-        addToLog(`  开仓手续费: -${posOpenFee.toFixed(4)}`);
-        addToLog(`  平仓手续费: -${posCloseFee.toFixed(4)}`);
+        addToLog(`  已实现盈亏: ${posRealizedPnl >= 0 ? '+' : ''}${posRealizedPnl?.toFixed(4)}`);
+        addToLog(`  开仓手续费: -${posOpenFee?.toFixed(4)}`);
+        addToLog(`  平仓手续费: -${posCloseFee?.toFixed(4)}`);
 
         // 计算影响
         const totalFees = posOpenFee + posCloseFee;
@@ -767,7 +768,7 @@ export default function ContractFormulaCalculator() {
                     >
                       {isPositionClosed(pos) ? "-" : (
                           <>
-                            {pos.dex.toFixed(4)}
+                            {pos.dex?.toFixed(4)}
                             {pos.isMerged && <span className="text-xs text-yellow-500 ml-1">(合并)</span>}
                           </>
                       )}

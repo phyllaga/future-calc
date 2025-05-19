@@ -8,7 +8,7 @@ import { calculateAllDEX, calculateLiquidationPrices, calculatePositionValues } 
 export const createNewPosition = (props) => {
   const {
     symbol, direction, entryPrice, quantity, currentPrice, leverage,
-    marginType, contractValue, feeRate, maintenanceMarginRate, addToLog,
+    marginType, contractValue, feeRate, maintenanceMarginRate, addToLog,dex,
     currentDateTime, currentUser
   } = props;
 
@@ -63,6 +63,7 @@ export const createNewPosition = (props) => {
     maintenanceMargin: maintenanceMargin.toFixed(4),
     unrealizedPnl,
     realizedPnl: null,
+    dex:0,
     createdAt: new Date().toISOString(),
     closePrice: null,
     closedAt: null
