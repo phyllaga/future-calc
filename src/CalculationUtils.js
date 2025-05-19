@@ -1,4 +1,3 @@
-
 /**
  * 计算工具函数
  * 包含所有与合约交易计算相关的功能
@@ -10,7 +9,7 @@ export const translateMarginType = (type) => type === 'cross' ? '全仓' : '逐�
 
 // 计算未实现盈亏
 export const calculateUnrealizedPnL = (pos, contractValue) => {
-  if (pos.status === 'closed') return "0.00";  // 修改这里
+  if (isPositionClosed(pos)) return "0.00";
 
   const delta = pos.direction === 'long'
       ? pos.currentPrice - pos.entryPrice
@@ -19,10 +18,7 @@ export const calculateUnrealizedPnL = (pos, contractValue) => {
   return (delta * pos.quantity * contractValue).toFixed(2);
 };
 
-// 计算所有仓位的DEX
-
-
-// Add this function to CalculationUtils.js
+// 计算仓位基础值
 export const calculatePositionValues = (pos, currentPrice, contractValue, feeRate, maintenanceMarginRate) => {
   if (isPositionClosed(pos)) return pos;
   // Update position value based on current price
@@ -49,9 +45,11 @@ export const calculatePositionValues = (pos, currentPrice, contractValue, feeRat
     unrealizedPnl
   };
 };
+
 export const isPositionClosed = (position) => {
   return position.closed === true;
 };
+
 /**
  * 合并同一交易对的全仓仓位
  * @param {Array} positions 所有仓位
@@ -156,67 +154,192 @@ export const mergePositionsBySymbol = (positions) => {
   return mergedPositions;
 };
 
-// 修改计算所有仓位的DEX函数，加入合并逻辑
+// 修改计算DEX函数，区分全仓和逐仓DEX计算逻辑
 export const calculateAllDEX = (positions, currentBalance, contractValue) => {
-  // DEX计算需要考虑所有仓位信息，返回每个仓位对应的DEX值
-  const activePositions = positions.filter(p => p.status !== 'closed');
+  // 过滤有效仓位
+  const activePositions = positions.filter(p => !isPositionClosed(p));
 
-  // 计算总的维持保证金、总手续费和总逐仓保证金
-  const totalMaintenanceMargin = activePositions.reduce(
-      (sum, p) => sum + parseFloat(p.maintenanceMargin || 0), 0);
-  const totalFees = activePositions.reduce(
-      (sum, p) => sum + parseFloat(p.openFee || 0), 0);
-  const totalIsolatedMargin = activePositions
-      .filter(p => p.marginType === 'isolated')
-      .reduce((sum, p) => sum + parseFloat(p.margin || 0), 0);
+  // 分离全仓和逐仓仓位
+  const crossPositions = activePositions.filter(p => p.marginType === 'cross');
+  const isolatedPositions = activePositions.filter(p => p.marginType === 'isolated');
 
-  // 计算每个仓位的DEX
-  return activePositions.map(pos => {
-    // 计算除本仓位外其他仓位的未实现盈亏
-    const otherPositionsUnrealizedPnl = activePositions.reduce((sum, p) => {
-      if (p.symbol !== pos.symbol) { // 不同的对象引用
-        return sum + parseFloat(p.unrealizedPnl || 0);
-      }
-      return sum;
-    }, 0);
+  // 创建一个结果数组
+  const result = [];
 
-    // 当前仓位的DEX
-    const dex = currentBalance - totalMaintenanceMargin - totalFees - totalIsolatedMargin + otherPositionsUnrealizedPnl;
-
-    return {
-      ...pos,
-      dex: dex.toFixed(2)
-    };
+  // 按交易对分组全仓仓位以确保同一交易对使用相同的DEX计算
+  const crossSymbolGroups = {};
+  crossPositions.forEach(pos => {
+    if (!crossSymbolGroups[pos.symbol]) {
+      crossSymbolGroups[pos.symbol] = [];
+    }
+    crossSymbolGroups[pos.symbol].push(pos);
   });
+
+  // 计算全仓仓位的DEX
+  if (crossPositions.length > 0) {
+    // 计算全局数据
+    const totalMaintenanceMargin = activePositions.reduce(
+        (sum, p) => sum + parseFloat(p.maintenanceMargin || 0), 0);
+    const totalOpenFees = activePositions.reduce(
+        (sum, p) => sum + parseFloat(p.openFee || 0), 0);
+    const totalIsolatedMargin = isolatedPositions.reduce(
+        (sum, p) => sum + parseFloat(p.margin || 0), 0);
+
+    // 处理每个交易对组
+    Object.keys(crossSymbolGroups).forEach(symbol => {
+      const positionsForSymbol = crossSymbolGroups[symbol];
+
+      // 计算除此交易对外其他仓位的未实现盈亏
+      const otherPositionsUnrealizedPnl = activePositions.reduce((sum, p) => {
+        if (p.symbol !== symbol) {
+          return sum + parseFloat(p.unrealizedPnl || 0);
+        }
+        return sum;
+      }, 0);
+
+      // 计算全仓DEX
+      const crossDex = currentBalance - totalMaintenanceMargin - totalOpenFees - totalIsolatedMargin + otherPositionsUnrealizedPnl;
+
+      // 将DEX应用到此交易对的所有全仓仓位
+      positionsForSymbol.forEach(pos => {
+        result.push({
+          ...pos,
+          dex: crossDex.toFixed(2)
+        });
+      });
+    });
+  }
+
+  // 计算逐仓仓位的DEX
+  isolatedPositions.forEach(pos => {
+    // 逐仓DEX = 仓位保证金 - 仓位维持保证金 - 仓位手续费
+    const isolatedDex = parseFloat(pos.margin) -
+        parseFloat(pos.maintenanceMargin) -
+        parseFloat(pos.openFee);
+
+    result.push({
+      ...pos,
+      dex: isolatedDex.toFixed(2)
+    });
+  });
+
+  // 添加已关闭的仓位（无需计算DEX）
+  positions.filter(isPositionClosed).forEach(pos => {
+    result.push(pos);
+  });
+
+  return result;
 };
 
-
-
-
-
-
-// 计算爆仓价，基于最新的DEX值
+// 修改爆仓价计算函数，确保同一交易对的全仓仓位爆仓价一致
 export const calculateLiquidationPrices = (positionsWithDex, contractValue) => {
-  return positionsWithDex.map(pos => {
-    // 如果已平仓，不再计算爆仓价
-    if (isPositionClosed(pos)) return pos;
-    
+  // 按交易对分组全仓仓位
+  const crossSymbolGroups = {};
+  positionsWithDex.filter(p => p.marginType === 'cross' && !isPositionClosed(p)).forEach(pos => {
+    if (!crossSymbolGroups[pos.symbol]) {
+      crossSymbolGroups[pos.symbol] = [];
+    }
+    crossSymbolGroups[pos.symbol].push(pos);
+  });
+
+  // 计算每组全仓的统一爆仓价
+  Object.keys(crossSymbolGroups).forEach(symbol => {
+    const positions = crossSymbolGroups[symbol];
+    if (positions.length === 0) return;
+
+    // 如果是合并后的仓位，使用该仓位计算爆仓价
+    const mergedPos = positions.find(p => p.isMerged);
+    let liquidationPrice;
+
+    if (mergedPos) {
+      // 使用合并仓位计算爆仓价
+      const positionValue = parseFloat(mergedPos.positionValue);
+      const dex = parseFloat(mergedPos.dex);
+
+      if (mergedPos.direction === 'long') {
+        liquidationPrice = (positionValue - dex) / (mergedPos.quantity * contractValue);
+      } else {
+        liquidationPrice = (positionValue + dex) / (mergedPos.quantity * contractValue);
+      }
+
+      // 将相同的爆仓价应用于所有相关仓位
+      const formattedPrice = liquidationPrice.toFixed(4);
+      positions.forEach(pos => {
+        pos.liquidationPrice = formattedPrice;
+      });
+    }
+    // 如果没有合并仓位但有多个仓位，需要单独合并计算
+    else if (positions.length > 1) {
+      // 分离多空仓位并计算总量
+      let longQuantity = 0, shortQuantity = 0;
+      let longValue = 0, shortValue = 0;
+
+      positions.forEach(pos => {
+        if (pos.direction === 'long') {
+          longQuantity += parseFloat(pos.quantity);
+          longValue += parseFloat(pos.positionValue);
+        } else {
+          shortQuantity += parseFloat(pos.quantity);
+          shortValue += parseFloat(pos.positionValue);
+        }
+      });
+
+      // 计算净仓位和方向
+      const netQuantity = longQuantity - shortQuantity;
+      const netDirection = netQuantity > 0 ? 'long' : 'short';
+      const absNetQuantity = Math.abs(netQuantity);
+      const dex = parseFloat(positions[0].dex); // 所有仓位DEX相同，取第一个
+
+      if (netDirection === 'long') {
+        // 净多仓
+        const netPositionValue = longValue - shortValue;
+        liquidationPrice = (netPositionValue - dex) / (absNetQuantity * contractValue);
+      } else {
+        // 净空仓
+        const netPositionValue = shortValue - longValue;
+        liquidationPrice = (netPositionValue + dex) / (absNetQuantity * contractValue);
+      }
+
+      // 将统一爆仓价应用于所有仓位
+      const formattedPrice = liquidationPrice.toFixed(4);
+      positions.forEach(pos => {
+        pos.liquidationPrice = formattedPrice;
+      });
+    }
+    // 只有一个仓位的情况
+    else {
+      const pos = positions[0];
+      const positionValue = parseFloat(pos.positionValue);
+      const dex = parseFloat(pos.dex);
+
+      if (pos.direction === 'long') {
+        liquidationPrice = (positionValue - dex) / (pos.quantity * contractValue);
+      } else {
+        liquidationPrice = (positionValue + dex) / (pos.quantity * contractValue);
+      }
+
+      pos.liquidationPrice = liquidationPrice.toFixed(4);
+    }
+  });
+
+  // 处理逐仓仓位的爆仓价
+  positionsWithDex.filter(p => p.marginType === 'isolated' && !isPositionClosed(p)).forEach(pos => {
     const positionValue = parseFloat(pos.positionValue);
     const dex = parseFloat(pos.dex);
     let liquidationPrice;
-    
+
     if (pos.direction === 'long') {
       liquidationPrice = (positionValue - dex) / (pos.quantity * contractValue);
     } else {
       liquidationPrice = (positionValue + dex) / (pos.quantity * contractValue);
     }
-    
-    return {
-      ...pos,
-      liquidationPrice: liquidationPrice.toFixed(4)
-    };
+
+    pos.liquidationPrice = liquidationPrice.toFixed(4);
   });
+
+  return positionsWithDex;
 };
+
 export const recalculateAllPositions = (props) => {
   const {
     positions, currentPrice, contractValue, feeRate,
@@ -239,7 +362,7 @@ export const recalculateAllPositions = (props) => {
     );
   });
 
-  // 计算所有仓位的DEX(会进行同交易对全仓仓位合并)
+  // 计算所有仓位的DEX
   if (!isAutoRefresh) {
     addToLog(`--- 更新所有仓位DEX ---`);
 
@@ -251,7 +374,7 @@ export const recalculateAllPositions = (props) => {
     crossSymbols.forEach(symbol => {
       const positionsForSymbol = crossPositions.filter(p => p.symbol === symbol);
       if (positionsForSymbol.length > 1) {
-        logMergedPositionCalculation(positionsForSymbol, addToLog,contractValue);
+        logMergedPositionCalculation(positionsForSymbol, addToLog, contractValue);
       }
     });
   }
@@ -285,8 +408,7 @@ export const recalculateAllPositions = (props) => {
 
   return finalPositions;
 };
-// 计算仓位信息
-// 修改 calculateAccountInfo 函数
+
 // 修改 calculateAccountInfo 函数
 export const calculateAccountInfo = (positions, initialBalance, currentBalance) => {
   const totalMarginCross = positions.filter(p => p.marginType === 'cross' && !isPositionClosed(p)).reduce((sum, p) => sum + parseFloat(p.margin), 0);
