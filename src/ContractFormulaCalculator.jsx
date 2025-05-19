@@ -652,20 +652,23 @@ export default function ContractFormulaCalculator() {
             <div className="flex items-center">
               <span className="mr-1">可用资金:</span>
               <span className="text-blue-500 hover:underline cursor-pointer" onClick={() => {
-                addToLog(`可用资金计算公式：当前余额 - 总保证金占用`);
-                addToLog(`计算过程：${currentBalance.toFixed(2)} - ${totalMargin.toFixed(2)} = ${availableBalance.toFixed(2)}`);
+                addToLog(`可用资金计算公式：余额 - 逐仓保证金之和 - 全仓保证金之和 + 当前全仓持仓亏损部分之和`);
+                addToLog(`计算过程：${currentBalance.toFixed(2)} - ${totalMarginIsolated.toFixed(2)} - ${totalMarginCross.toFixed(2)} + (${totalCrossLoss.toFixed(2)})`);
+                addToLog(`= ${availableBalance.toFixed(2)}`);
               }}>
-              {availableBalance.toFixed(2)}
-            </span>
+    {availableBalanceFormatted || availableBalance.toFixed(2)}
+  </span>
             </div>
-            <div className="account-info">
-              <h3>账户信息</h3>
-              <div className="info-row">
-                <span>余额: {currentBalance.toFixed(2)}</span>
-                <span>可用资金: {accountInfo.availableBalance.toFixed(2)}</span>
-                <span>可划转金额: {accountInfo.transferableBalance}</span> {/* 新增显示 */}
-              </div>
-              {/* 其他账户信息... */}
+            {/* 可划转金额显示 */}
+            <div className="flex items-center">
+              <span className="mr-1">可划转金额:</span>
+              <span className="text-green-500 hover:underline cursor-pointer" onClick={() => {
+                addToLog(`可划转金额计算公式：余额 - 逐仓保证金之和 - 全仓保证金之和 + 当前全仓持仓亏损部分之和`);
+                addToLog(`计算过程：${currentBalance.toFixed(2)} - ${totalMarginIsolated.toFixed(2)} - ${totalMarginCross.toFixed(2)} + (${totalCrossLoss.toFixed(2)})`);
+                addToLog(`= ${transferableBalance.toFixed(2)}`);
+              }}>
+            {transferableBalanceFormatted || transferableBalance.toFixed(2)}
+            </span>
             </div>
             <div className="flex items-center">
               <span className="mr-1">未实现盈亏:</span>
