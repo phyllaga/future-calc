@@ -235,6 +235,7 @@ export const calculateAvailableBalance = (positions, currentBalance) => {
 
   // 计算可用余额
   const availableBalance = balance - totalIsolatedMargin - totalCrossMargin + totalCrossLoss;
+  const availableBalanceFormatted = availableBalance.toFixed(2); // 格式化
 
   // 生成计算步骤说明
   const steps = [
@@ -243,19 +244,18 @@ export const calculateAvailableBalance = (positions, currentBalance) => {
     `全仓保证金之和: ${totalCrossMargin.toFixed(2)}`,
     `当前全仓持仓亏损部分之和: ${totalCrossLoss.toFixed(2)} (仅计算亏损的仓位)`,
     `计算过程: ${balance.toFixed(2)} - ${totalIsolatedMargin.toFixed(2)} - ${totalCrossMargin.toFixed(2)} + (${totalCrossLoss.toFixed(2)})`,
-    `= ${availableBalance.toFixed(2)}`
+    `= ${availableBalanceFormatted}`
   ];
 
   return {
-    availableBalance,  // 返回数值而不是字符串
-    availableBalanceFormatted: availableBalance.toFixed(2),  // 提供格式化版本
+    availableBalance,  // 数值
+    availableBalanceFormatted,  // 格式化字符串
     steps,
     totalIsolatedMargin,
     totalCrossMargin,
     totalCrossLoss
   };
 };
-
 
 
 /**
@@ -943,38 +943,47 @@ function generateAccountMetricsSteps(
 export const calculateAccountInfo = (positions, initialBalance, currentBalance) => {
   const totalMarginCross = positions
       .filter(p => p.marginType === 'cross' && !isPositionClosed(p))
-      .reduce((sum, p) => sum + parseFloat(p.margin), 0);
+      .reduce((sum, p) => sum + parseFloat(p.margin || 0), 0);
 
   const totalMarginIsolated = positions
       .filter(p => p.marginType === 'isolated' && !isPositionClosed(p))
-      .reduce((sum, p) => sum + parseFloat(p.margin), 0);
+      .reduce((sum, p) => sum + parseFloat(p.margin || 0), 0);
 
   const totalMargin = totalMarginCross + totalMarginIsolated;
 
   const totalOpenFee = positions
-      .reduce((sum, p) => sum + parseFloat(p.openFee), 0);
+      .reduce((sum, p) => sum + parseFloat(p.openFee || 0), 0);
 
   const totalCloseFee = positions
       .filter(p => isPositionClosed(p) && p.closeFee)
-      .reduce((sum, p) => sum + parseFloat(p.closeFee), 0);
+      .reduce((sum, p) => sum + parseFloat(p.closeFee || 0), 0);
 
   const totalFee = totalOpenFee + totalCloseFee;
 
   const totalUnrealizedPnl = positions
       .filter(p => !isPositionClosed(p))
-      .reduce((sum, p) => sum + parseFloat(p.unrealizedPnl), 0);
+      .reduce((sum, p) => sum + parseFloat(p.unrealizedPnl || 0), 0);
 
   const totalRealizedPnl = positions
       .filter(p => isPositionClosed(p) && p.realizedPnl)
-      .reduce((sum, p) => sum + parseFloat(p.realizedPnl), 0);
+      .reduce((sum, p) => sum + parseFloat(p.realizedPnl || 0), 0);
 
   // 计算可用余额 - 使用新的计算方法
-  const { availableBalance, steps: availableBalanceSteps } =
-      calculateAvailableBalance(positions, currentBalance);
+  const {
+    availableBalance,
+    availableBalanceFormatted,
+    steps: availableBalanceSteps,
+    totalIsolatedMargin,
+    totalCrossMargin,
+    totalCrossLoss
+  } = calculateAvailableBalance(positions, currentBalance);
 
-  // 计算可划转金额 - 现在公式相同
-  const { transferableBalance, steps: transferableSteps } =
-      calculateTransferableBalance(positions, currentBalance);
+  // 计算可划转金额 - 使用新的计算方法，现在公式相同
+  const {
+    transferableBalance,
+    transferableBalanceFormatted,
+    steps: transferableSteps
+  } = calculateTransferableBalance(positions, currentBalance);
 
   // 生成账户指标计算步骤
   const steps = generateAccountMetricsSteps(
@@ -996,8 +1005,13 @@ export const calculateAccountInfo = (positions, initialBalance, currentBalance) 
     totalFee,
     totalUnrealizedPnl,
     totalRealizedPnl,
-    availableBalance, // 更新为新的计算方式
-    transferableBalance,
+    availableBalance,                 // 数值
+    availableBalanceFormatted,        // 添加格式化的字符串
+    transferableBalance,              // 数值
+    transferableBalanceFormatted,     // 添加格式化的字符串
+    totalCrossLoss,                   // 为界面展示也传递这些值
+    totalIsolatedMargin,
+    totalCrossMargin,
     steps
   };
 };
