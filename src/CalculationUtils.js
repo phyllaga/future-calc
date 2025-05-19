@@ -1026,17 +1026,18 @@ export const calculateAccountInfo = (positions, initialBalance, currentBalance) 
   );
 
   return {
-    totalMarginCross,
-    totalMarginIsolated,
-    totalMargin,
+    totalMarginCross: Number(totalMarginCross.toFixed(4)),
+    totalMarginIsolated: Number(totalMarginIsolated.toFixed(4)),
+    totalMargin: Number(totalMargin.toFixed(4)),
     totalOpenFee,
     totalCloseFee,
     totalFee,
-    totalUnrealizedPnl,
-    totalRealizedPnl,
-    availableBalance,                 // 可用余额（数值）
+    totalUnrealizedPnl: Number(totalUnrealizedPnl.toFixed(4)),
+    totalRealizedPnl: Number(totalRealizedPnl.toFixed(4)),
+    availableBalance: Number(availableBalance.toFixed(4)),
+
     availableBalanceFormatted,        // 可用余额（格式化）
-    transferableBalance,              // 可划转余额（数值）
+    transferableBalance: Number(transferableBalance.toFixed(4)),              // 可划转余额（数值）
     transferableBalanceFormatted,     // 可划转余额（格式化）
     totalCrossPnl,                    // 全仓仓位全部未实现盈亏
     totalCrossLoss,                   // 全仓仓位亏损部分

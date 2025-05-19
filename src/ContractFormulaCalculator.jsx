@@ -228,7 +228,7 @@ export default function ContractFormulaCalculator() {
     });
 
     setPositions(finalPositions);
-    addToLog(`仓位创建成功: ${symbol} ${translateDirection(direction)} ${quantity}张 @${entryPrice}，当前余额保持为 ${currentBalance.toFixed(2)}`);
+    addToLog(`仓位创建成功: ${symbol} ${translateDirection(direction)} ${quantity}张 @${entryPrice}，当前余额保持为 ${currentBalance.toFixed(4)}`);
 
     // 清空输入框
     setEntryPrice('');
@@ -286,7 +286,7 @@ export default function ContractFormulaCalculator() {
   // 重置余额为初始余额
   const resetBalance = () => {
     setCurrentBalance(initialBalance);
-    addToLog(`余额已重置为初始值: ${initialBalance.toFixed(2)}`);
+    addToLog(`余额已重置为初始值: ${initialBalance.toFixed(4)}`);
   };
 
   // 清空日志
@@ -314,7 +314,7 @@ export default function ContractFormulaCalculator() {
     if (closedPositions.length > 0) {
       let runningBalance = initialBalance;
 
-      addToLog(`初始余额: ${initialBalance.toFixed(2)}`);
+      addToLog(`初始余额: ${initialBalance.toFixed(4)}`);
 
       closedPositions.forEach((pos, index) => {
         const posRealizedPnl = parseFloat(pos.realizedPnl);
@@ -324,7 +324,7 @@ export default function ContractFormulaCalculator() {
         // 详细展示这笔交易对余额的影响
         addToLog(`\n[${index + 1}] ${pos.symbol} ${translateDirection(pos.direction)} ${pos.quantity}张`);
         addToLog(`  开仓价: ${pos.entryPrice} → 平仓价: ${pos.closePrice}`);
-        addToLog(`  已实现盈亏: ${posRealizedPnl >= 0 ? '+' : ''}${posRealizedPnl.toFixed(2)}`);
+        addToLog(`  已实现盈亏: ${posRealizedPnl >= 0 ? '+' : ''}${posRealizedPnl.toFixed(4)}`);
         addToLog(`  开仓手续费: -${posOpenFee.toFixed(4)}`);
         addToLog(`  平仓手续费: -${posCloseFee.toFixed(4)}`);
 
@@ -333,27 +333,27 @@ export default function ContractFormulaCalculator() {
         const netImpact = posRealizedPnl - totalFees;
 
         addToLog(`  --- 余额计算过程 ---`);
-        addToLog(`  交易前余额: ${runningBalance.toFixed(2)}`);
+        addToLog(`  交易前余额: ${runningBalance.toFixed(4)}`);
         addToLog(`  计算公式: 交易前余额 + 已实现盈亏 - 总手续费`);
-        addToLog(`  计算过程: ${runningBalance.toFixed(2)} + ${posRealizedPnl.toFixed(2)} - ${totalFees.toFixed(4)}`);
+        addToLog(`  计算过程: ${runningBalance.toFixed(4)} + ${posRealizedPnl.toFixed(4)} - ${totalFees.toFixed(4)}`);
 
         // 更新运行中的余额
         runningBalance = runningBalance + netImpact;
 
-        addToLog(`  = ${runningBalance.toFixed(2)}`);
-        addToLog(`  交易后余额: ${runningBalance.toFixed(2)}`);
+        addToLog(`  = ${runningBalance.toFixed(4)}`);
+        addToLog(`  交易后余额: ${runningBalance.toFixed(4)}`);
       });
 
       // 确认最终余额
       if (Math.abs(runningBalance - currentBalance) < 0.0001) {
-        addToLog(`\n最终余额: ${currentBalance.toFixed(2)} (计算正确)`);
+        addToLog(`\n最终余额: ${currentBalance.toFixed(4)} (计算正确)`);
       } else {
-        addToLog(`\n最终余额: ${currentBalance.toFixed(2)}`);
-        addToLog(`计算所得余额: ${runningBalance.toFixed(2)}`);
+        addToLog(`\n最终余额: ${currentBalance.toFixed(4)}`);
+        addToLog(`计算所得余额: ${runningBalance.toFixed(4)}`);
         addToLog(`注意: 最终余额与计算所得余额有差异，可能存在其他因素影响`);
       }
     } else {
-      addToLog(`尚无平仓记录，当前余额与初始余额相同: ${currentBalance.toFixed(2)}`);
+      addToLog(`尚无平仓记录，当前余额与初始余额相同: ${currentBalance.toFixed(4)}`);
     }
   };
 
@@ -391,8 +391,8 @@ export default function ContractFormulaCalculator() {
     const activePositions = positions.filter(p => !isPositionClosed(p));
     const closedPositions = positions.filter(p => isPositionClosed(p));
 
-    addToLog(`初始余额: ${initialBalance.toFixed(2)}`);
-    addToLog(`当前余额: ${currentBalance.toFixed(2)}`);
+    addToLog(`初始余额: ${initialBalance.toFixed(4)}`);
+    addToLog(`当前余额: ${currentBalance.toFixed(4)}`);
 
     // 全仓仓位合并计算
     const crossPositions = activePositions.filter(p => p.marginType === 'cross');
@@ -507,10 +507,10 @@ export default function ContractFormulaCalculator() {
             <label className="block mb-2 text-md">初始余额</label>
             <input
                 type="number"
-                value={initialBalance}
+                value={initialBalance.toFixed(4)}
                 onChange={e => setInitialBalance(parseFloat(e.target.value))}
                 className="w-full p-2 border rounded-md"
-                onClick={() => addToLog(`初始余额设置为 ${initialBalance}`)}
+                onClick={() => addToLog(`初始余额设置为 ${initialBalance.toFixed(4)}`)}
             />
           </div>
           <div className="col-span-1 lg:col-span-1">
@@ -627,26 +627,26 @@ export default function ContractFormulaCalculator() {
           <div className="flex flex-wrap items-center gap-3 md:gap-5">
             <div className="flex items-center">
               <span className="mr-1">初始余额:</span>
-              <span className="text-blue-500 hover:underline cursor-pointer" onClick={() => addToLog(`初始余额 = ${initialBalance.toFixed(2)}`)}>
-              {initialBalance.toFixed(2)}
+              <span className="text-blue-500 hover:underline cursor-pointer" onClick={() => addToLog(`初始余额 = ${initialBalance.toFixed(4)}`)}>
+              {initialBalance.toFixed(4)}
             </span>
             </div>
             <div className="flex items-center">
               <span className="mr-1">当前余额:</span>
               <span className="text-blue-500 hover:underline cursor-pointer font-bold" onClick={handleLogBalanceHistory}>
-              {currentBalance.toFixed(2)}
+              {currentBalance.toFixed(4)}
             </span>
             </div>
             <div className="flex items-center">
               <span className="mr-1">全仓保证金:</span>
-              <span className="text-blue-500 hover:underline cursor-pointer" onClick={() => addToLog(`全仓保证金 = ${totalMarginCross.toFixed(2)}`)}>
-              {totalMarginCross.toFixed(2)}
+              <span className="text-blue-500 hover:underline cursor-pointer" onClick={() => addToLog(`全仓保证金 = ${totalMarginCross.toFixed(4)}`)}>
+              {totalMarginCross.toFixed(4)}
             </span>
             </div>
             <div className="flex items-center">
               <span className="mr-1">逐仓保证金:</span>
-              <span className="text-blue-500 hover:underline cursor-pointer" onClick={() => addToLog(`逐仓保证金 = ${totalMarginIsolated.toFixed(2)}`)}>
-              {totalMarginIsolated.toFixed(2)}
+              <span className="text-blue-500 hover:underline cursor-pointer" onClick={() => addToLog(`逐仓保证金 = ${totalMarginIsolated.toFixed(4)}`)}>
+              {totalMarginIsolated.toFixed(4)}
             </span>
             </div>
             {/* 可用资金显示 */}
@@ -655,13 +655,13 @@ export default function ContractFormulaCalculator() {
               <span className="text-blue-500 hover:underline cursor-pointer" onClick={() => {
                 addToLog(`--- 可用余额计算 ---`);
                 addToLog(`可用余额计算公式：余额 - 逐仓保证金之和 - 全仓保证金之和 + 当前全仓持仓未实现盈亏之和`);
-                addToLog(`逐仓保证金之和: ${accountInfo.totalIsolatedMargin.toFixed(2)}`);
-                addToLog(`全仓保证金之和: ${accountInfo.totalCrossMargin.toFixed(2)}`);
-                addToLog(`当前全仓持仓未实现盈亏之和: ${accountInfo.totalCrossPnl.toFixed(2)}`);
-                addToLog(`计算过程: ${currentBalance.toFixed(2)} - ${accountInfo.totalIsolatedMargin.toFixed(2)} - ${accountInfo.totalCrossMargin.toFixed(2)} + (${accountInfo.totalCrossPnl.toFixed(2)})`);
+                addToLog(`逐仓保证金之和: ${accountInfo.totalIsolatedMargin.toFixed(4)}`);
+                addToLog(`全仓保证金之和: ${accountInfo.totalCrossMargin.toFixed(4)}`);
+                addToLog(`当前全仓持仓未实现盈亏之和: ${accountInfo.totalCrossPnl.toFixed(4)}`);
+                addToLog(`计算过程: ${currentBalance.toFixed(4)} - ${accountInfo.totalIsolatedMargin.toFixed(4)} - ${accountInfo.totalCrossMargin.toFixed(4)} + (${accountInfo.totalCrossPnl.toFixed(4)})`);
                 addToLog(`= ${accountInfo.availableBalanceFormatted}`);
               }}>
-    {accountInfo.availableBalanceFormatted || (accountInfo.availableBalance && accountInfo.availableBalance.toFixed(2)) || "0.00"}
+    {accountInfo.availableBalanceFormatted || (accountInfo.availableBalance && accountInfo.availableBalance.toFixed(4)) || "0.00"}
   </span>
             </div>
 
@@ -671,25 +671,25 @@ export default function ContractFormulaCalculator() {
               <span className="text-green-500 hover:underline cursor-pointer" onClick={() => {
                 addToLog(`--- 可划转金额计算 ---`);
                 addToLog(`可划转金额计算公式：余额 - 逐仓保证金之和 - 全仓保证金之和 + 当前全仓持仓亏损部分之和`);
-                addToLog(`逐仓保证金之和: ${accountInfo.totalIsolatedMargin.toFixed(2)}`);
-                addToLog(`全仓保证金之和: ${accountInfo.totalCrossMargin.toFixed(2)}`);
-                addToLog(`当前全仓持仓亏损部分之和: ${accountInfo.totalCrossLoss.toFixed(2)} (仅计算亏损的仓位)`);
-                addToLog(`计算过程: ${currentBalance.toFixed(2)} - ${accountInfo.totalIsolatedMargin.toFixed(2)} - ${accountInfo.totalCrossMargin.toFixed(2)} + (${accountInfo.totalCrossLoss.toFixed(2)})`);
+                addToLog(`逐仓保证金之和: ${accountInfo.totalIsolatedMargin.toFixed(4)}`);
+                addToLog(`全仓保证金之和: ${accountInfo.totalCrossMargin.toFixed(4)}`);
+                addToLog(`当前全仓持仓亏损部分之和: ${accountInfo.totalCrossLoss.toFixed(4)} (仅计算亏损的仓位)`);
+                addToLog(`计算过程: ${currentBalance.toFixed(4)} - ${accountInfo.totalIsolatedMargin.toFixed(4)} - ${accountInfo.totalCrossMargin.toFixed(4)} + (${accountInfo.totalCrossLoss.toFixed(4)})`);
                 addToLog(`= ${accountInfo.transferableBalanceFormatted}`);
               }}>
-    {accountInfo.transferableBalanceFormatted || (accountInfo.transferableBalance && accountInfo.transferableBalance.toFixed(2)) || "0.00"}
+    {accountInfo.transferableBalanceFormatted || (accountInfo.transferableBalance && accountInfo.transferableBalance.toFixed(4)) || "0.00"}
   </span>
             </div>
             <div className="flex items-center">
               <span className="mr-1">未实现盈亏:</span>
-              <span className="text-blue-500 hover:underline cursor-pointer" onClick={() => addToLog(`未实现盈亏总和 = ${totalUnrealizedPnl.toFixed(2)}`)}>
-              {totalUnrealizedPnl.toFixed(2)}
+              <span className="text-blue-500 hover:underline cursor-pointer" onClick={() => addToLog(`未实现盈亏总和 = ${totalUnrealizedPnl.toFixed(4)}`)}>
+              {totalUnrealizedPnl.toFixed(4)}
             </span>
             </div>
             <div className="flex items-center">
               <span className="mr-1">已实现盈亏:</span>
-              <span className="text-blue-500 hover:underline cursor-pointer" onClick={() => addToLog(`已实现盈亏总和 = ${totalRealizedPnl.toFixed(2)}`)}>
-              {totalRealizedPnl.toFixed(2)}
+              <span className="text-blue-500 hover:underline cursor-pointer" onClick={() => addToLog(`已实现盈亏总和 = ${totalRealizedPnl.toFixed(4)}`)}>
+              {totalRealizedPnl.toFixed(4)}
             </span>
             </div>
             <div className="flex items-center text-xs text-gray-500 ml-auto">
@@ -767,7 +767,7 @@ export default function ContractFormulaCalculator() {
                     >
                       {isPositionClosed(pos) ? "-" : (
                           <>
-                            {pos.dex}
+                            {pos.dex.toFixed(4)}
                             {pos.isMerged && <span className="text-xs text-yellow-500 ml-1">(合并)</span>}
                           </>
                       )}
@@ -782,7 +782,7 @@ export default function ContractFormulaCalculator() {
                         className="p-2 md:p-3 border text-center cursor-pointer text-blue-500 hover:underline"
                         onClick={() => handleLogCalculation('unrealizedPnl', pos)}
                     >
-                      {isPositionClosed(pos) ? "0.00" : pos.unrealizedPnl}
+                      {isPositionClosed(pos) ? "0.00" : parseFloat(pos.unrealizedPnl).toFixed(4)}
                     </td>
                     <td className="p-2 md:p-3 border text-center">
                       {pos.realizedPnl ? (
@@ -793,7 +793,7 @@ export default function ContractFormulaCalculator() {
                     </td>
                     <td className="p-2 md:p-3 border text-center">{pos.quantity}</td>
                     <td className="p-2 md:p-3 border text-center cursor-pointer text-blue-500 hover:underline" onClick={() => handleLogCalculation('margin', pos)}>
-                      {pos.margin}
+                      {parseFloat(pos.margin).toFixed(4)}
                     </td>
                     <td
                         className="p-2 md:p-3 border text-center cursor-pointer text-blue-500 hover:underline"
