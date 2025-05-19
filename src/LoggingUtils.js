@@ -14,7 +14,7 @@ import {
   calculateCloseFee,
   calculateLiquidationPrice,
   mergePositionsBySymbol,
-  isPositionClosed
+  isPositionClosed, calculateAvailableBalance, calculateTransferableBalance
 } from './CalculationUtils';
 
 // 记录合并仓位计算过程
