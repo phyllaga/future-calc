@@ -322,6 +322,7 @@ export default function ContractFormulaCalculator() {
         const posOpenFee = parseFloat(pos.openFee);
         const posCloseFee = parseFloat(pos.closeFee);
 
+
         // 详细展示这笔交易对余额的影响
         addToLog(`\n[${index + 1}] ${pos.symbol} ${translateDirection(pos.direction)} ${pos.quantity}张`);
         addToLog(`  开仓价: ${pos.entryPrice} → 平仓价: ${pos.closePrice}`);
