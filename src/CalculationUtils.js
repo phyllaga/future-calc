@@ -103,7 +103,7 @@ export const calculateMargin = (pos) => {
  * 计算维持保证金，并返回计算过程
  */
 export const calculateMaintenanceMargin = (pos, contractValue, maintenanceMarginRate) => {
-  const mm = pos.quantity * pos.entryPrice * contractValue * maintenanceMarginRate;
+  const mm = parseFloat(pos.quantity) * parseFloat(pos.entryPrice) * contractValue * maintenanceMarginRate;
   const result = mm.toFixed(4);
 
   const steps = [
@@ -159,27 +159,27 @@ export const calculateCloseFee = (pos, contractValue, feeRate) => {
 export const calculatePositionValues = (pos, currentPrice, contractValue, feeRate, maintenanceMarginRate) => {
   if (isPositionClosed(pos)) return pos;
 
-  // 计算仓位价值
-  const positionValue = pos.quantity * contractValue * currentPrice;
+  // 计算仓位价值 (使用当前价格)
+  const positionValue = parseFloat(pos.quantity) * contractValue * currentPrice;
 
   // 计算保证金
-  const margin = positionValue / pos.leverage;
+  const margin = positionValue / parseFloat(pos.leverage);
 
-  // 计算维持保证金
-  const maintenanceMargin = pos.quantity * currentPrice * contractValue * maintenanceMarginRate;
+  // 计算维持保证金 (使用开仓均价) - 这里是修改的关键点
+  const maintenanceMargin = parseFloat(pos.quantity) * parseFloat(pos.entryPrice) * contractValue * maintenanceMarginRate;
 
   // 计算未实现盈亏
   const delta = pos.direction === 'long'
-      ? currentPrice - pos.entryPrice
-      : pos.entryPrice - currentPrice;
-  const unrealizedPnl = (delta * pos.quantity * contractValue).toFixed(2);
+      ? currentPrice - parseFloat(pos.entryPrice)
+      : parseFloat(pos.entryPrice) - currentPrice;
+  const unrealizedPnl = (delta * parseFloat(pos.quantity) * contractValue).toFixed(2);
 
   return {
     ...pos,
     currentPrice,
     positionValue: positionValue.toFixed(4),
     margin: margin.toFixed(2),
-    maintenanceMargin: maintenanceMargin.toFixed(4),
+    maintenanceMargin: maintenanceMargin.toFixed(4), // 使用正确计算的维持保证金
     unrealizedPnl
   };
 };
