@@ -183,7 +183,6 @@ export const calculatePositionValues = (pos, currentPrice, contractValue, feeRat
     unrealizedPnl
   };
 };
-
 /**
  * 计算账户可划转金额
  * 可划转金额 = 余额 - 逐仓保证金之和 - 全仓保证金之和 + 当前全仓持仓亏损部分之和
@@ -230,6 +229,7 @@ export const calculateTransferableBalance = (positions, currentBalance) => {
     totalCrossLoss
   };
 };
+
 /**
  * 计算账户可用余额
  * 可用余额 = 余额 - 逐仓保证金之和 - 全仓保证金之和 + 当前全仓持仓未实现盈亏之和
@@ -276,6 +276,7 @@ export const calculateAvailableBalance = (positions, currentBalance) => {
     totalCrossPnl
   };
 };
+
 
 
 /**
@@ -953,10 +954,6 @@ function generateAccountMetricsSteps(
 
   return steps;
 }
-
-/**
- * 计算账户信息
- */
 /**
  * 计算账户信息
  */
@@ -988,21 +985,20 @@ export const calculateAccountInfo = (positions, initialBalance, currentBalance) 
       .filter(p => isPositionClosed(p) && p.realizedPnl)
       .reduce((sum, p) => sum + parseFloat(p.realizedPnl || 0), 0);
 
-  // 计算可用余额 - 使用新的计算方法
+  // 计算可用余额 - 包括全部的全仓未实现盈亏
   const {
     availableBalance,
     availableBalanceFormatted,
     steps: availableBalanceSteps,
-    totalIsolatedMargin,
-    totalCrossMargin,
-    totalCrossLoss
+    totalCrossPnl
   } = calculateAvailableBalance(positions, currentBalance);
 
-  // 计算可划转金额 - 使用新的计算方法，现在公式相同
+  // 计算可划转金额 - 只包括全仓亏损部分
   const {
     transferableBalance,
     transferableBalanceFormatted,
-    steps: transferableSteps
+    steps: transferableSteps,
+    totalCrossLoss
   } = calculateTransferableBalance(positions, currentBalance);
 
   // 生成账户指标计算步骤
@@ -1010,10 +1006,9 @@ export const calculateAccountInfo = (positions, initialBalance, currentBalance) 
       positions, initialBalance, currentBalance,
       totalMarginCross, totalMarginIsolated, totalMargin,
       totalOpenFee, totalCloseFee, totalFee,
-      totalUnrealizedPnl, totalRealizedPnl, availableBalance,
-      transferableBalance,
-      availableBalanceSteps,
-      transferableSteps
+      totalUnrealizedPnl, totalRealizedPnl,
+      availableBalance, transferableBalance,
+      availableBalanceSteps, transferableSteps
   );
 
   return {
@@ -1025,13 +1020,14 @@ export const calculateAccountInfo = (positions, initialBalance, currentBalance) 
     totalFee,
     totalUnrealizedPnl,
     totalRealizedPnl,
-    availableBalance,                 // 数值
-    availableBalanceFormatted,        // 添加格式化的字符串
-    transferableBalance,              // 数值
-    transferableBalanceFormatted,     // 添加格式化的字符串
-    totalCrossLoss,                   // 为界面展示也传递这些值
-    totalIsolatedMargin,
-    totalCrossMargin,
+    availableBalance,                 // 可用余额（数值）
+    availableBalanceFormatted,        // 可用余额（格式化）
+    transferableBalance,              // 可划转余额（数值）
+    transferableBalanceFormatted,     // 可划转余额（格式化）
+    totalCrossPnl,                    // 全仓仓位全部未实现盈亏
+    totalCrossLoss,                   // 全仓仓位亏损部分
+    totalIsolatedMargin: totalMarginIsolated,
+    totalCrossMargin: totalMarginCross,
     steps
   };
 };
