@@ -658,6 +658,15 @@ export default function ContractFormulaCalculator() {
               {availableBalance.toFixed(2)}
             </span>
             </div>
+            <div className="account-info">
+              <h3>账户信息</h3>
+              <div className="info-row">
+                <span>余额: {currentBalance.toFixed(2)}</span>
+                <span>可用资金: {accountInfo.availableBalance.toFixed(2)}</span>
+                <span>可划转金额: {accountInfo.transferableBalance}</span> {/* 新增显示 */}
+              </div>
+              {/* 其他账户信息... */}
+            </div>
             <div className="flex items-center">
               <span className="mr-1">未实现盈亏:</span>
               <span className="text-blue-500 hover:underline cursor-pointer" onClick={() => addToLog(`未实现盈亏总和 = ${totalUnrealizedPnl.toFixed(2)}`)}>

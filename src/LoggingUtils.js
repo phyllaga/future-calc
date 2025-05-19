@@ -129,17 +129,18 @@ export const logCalculation = (type, pos, currentPrice, contractValue, feeRate, 
 };
 
 // 账户信息计算日志记录
+// 更新logAccountMetrics函数
 export const logAccountMetrics = (props) => {
   const {
     positions, initialBalance, currentBalance, currentUser, currentDateTime,
     totalMarginCross, totalMarginIsolated, totalMargin, totalOpenFee,
     totalCloseFee, totalFee, totalUnrealizedPnl, totalRealizedPnl,
-    availableBalance, contractValue, addToLog, steps = []
+    availableBalance, transferableBalance, contractValue, addToLog, steps = []
   } = props;
 
   addToLog(`--- 账户指标计算 ---`);
-  addToLog(`用户: ${currentUser}`);
-  addToLog(`时间: ${currentDateTime} (UTC)`);
+  addToLog(`用户: ${currentUser || "phyllaga"}`);
+  addToLog(`时间: ${currentDateTime || "2025-05-19 07:11:14"} (UTC)`);
 
   // 如果有预先计算好的步骤，直接显示
   if (steps && steps.length > 0) {
@@ -147,14 +148,29 @@ export const logAccountMetrics = (props) => {
     return;
   }
 
-  // 否则基本账户信息
-  const activePositions = positions.filter(p => !isPositionClosed(p));
-  const closedPositions = positions.filter(p => isPositionClosed(p));
-
+  // 基本账户信息
   addToLog(`初始余额: ${initialBalance.toFixed(2)}`);
   addToLog(`当前余额: ${currentBalance.toFixed(2)}`);
 
-  // 如果有平仓记录，显示余额变更历史
+  // 计算可用余额和可划转金额
+  const { availableBalance: calcAvailableBalance, steps: availableBalanceSteps } =
+      calculateAvailableBalance(positions, currentBalance);
+
+  const { transferableBalance: calcTransferableBalance, steps: transferableSteps } =
+      calculateTransferableBalance(positions, currentBalance);
+
+  addToLog(`可用余额: ${calcAvailableBalance}`);
+  addToLog(`可划转金额: ${calcTransferableBalance}`);
+
+  // 显示详细计算步骤
+  addToLog(`\n--- 可用余额计算 ---`);
+  availableBalanceSteps.forEach(step => addToLog(step));
+
+  addToLog(`\n--- 可划转金额计算 ---`);
+  transferableSteps.forEach(step => addToLog(step));
+
+  // 显示余额变更历史
+  const closedPositions = positions.filter(p => isPositionClosed(p));
   if (closedPositions.length > 0) {
     logBalanceHistory(positions, initialBalance, currentBalance, addToLog);
   }
