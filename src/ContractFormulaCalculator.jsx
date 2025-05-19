@@ -653,22 +653,32 @@ export default function ContractFormulaCalculator() {
             <div className="flex items-center">
               <span className="mr-1">可用资金:</span>
               <span className="text-blue-500 hover:underline cursor-pointer" onClick={() => {
-                // 使用计算函数返回的步骤直接添加到日志
-                calculateAvailableBalance(positions, currentBalance).steps.forEach(step => addToLog(step));
+                addToLog(`--- 可用余额计算 ---`);
+                addToLog(`可用余额计算公式：余额 - 逐仓保证金之和 - 全仓保证金之和 + 当前全仓持仓亏损部分之和`);
+                addToLog(`逐仓保证金之和: ${accountInfo.totalIsolatedMargin.toFixed(2)}`);
+                addToLog(`全仓保证金之和: ${accountInfo.totalCrossMargin.toFixed(2)}`);
+                addToLog(`当前全仓持仓亏损部分之和: ${accountInfo.totalCrossLoss.toFixed(2)} (仅计算亏损的仓位)`);
+                addToLog(`计算过程: ${currentBalance.toFixed(2)} - ${accountInfo.totalIsolatedMargin.toFixed(2)} - ${accountInfo.totalCrossMargin.toFixed(2)} + (${accountInfo.totalCrossLoss.toFixed(2)})`);
+                addToLog(`= ${accountInfo.availableBalanceFormatted}`);
               }}>
-                {accountInfo.availableBalanceFormatted || (accountInfo.availableBalance && accountInfo.availableBalance.toFixed(2)) || "0.00"}
-              </span>
+    {accountInfo.availableBalanceFormatted || (accountInfo.availableBalance && accountInfo.availableBalance.toFixed(2)) || "0.00"}
+  </span>
             </div>
 
             {/* 可划转金额显示 */}
             <div className="flex items-center">
               <span className="mr-1">可划转金额:</span>
               <span className="text-green-500 hover:underline cursor-pointer" onClick={() => {
-                // 使用计算函数返回的步骤直接添加到日志
-                calculateTransferableBalance(positions, currentBalance).steps.forEach(step => addToLog(step));
+                addToLog(`--- 可划转金额计算 ---`);
+                addToLog(`可划转金额计算公式：余额 - 逐仓保证金之和 - 全仓保证金之和 + 当前全仓持仓亏损部分之和`);
+                addToLog(`逐仓保证金之和: ${accountInfo.totalIsolatedMargin.toFixed(2)}`);
+                addToLog(`全仓保证金之和: ${accountInfo.totalCrossMargin.toFixed(2)}`);
+                addToLog(`当前全仓持仓亏损部分之和: ${accountInfo.totalCrossLoss.toFixed(2)} (仅计算亏损的仓位)`);
+                addToLog(`计算过程: ${currentBalance.toFixed(2)} - ${accountInfo.totalIsolatedMargin.toFixed(2)} - ${accountInfo.totalCrossMargin.toFixed(2)} + (${accountInfo.totalCrossLoss.toFixed(2)})`);
+                addToLog(`= ${accountInfo.transferableBalanceFormatted}`);
               }}>
-                {accountInfo.transferableBalanceFormatted || (accountInfo.transferableBalance && accountInfo.transferableBalance.toFixed(2)) || "0.00"}
-              </span>
+    {accountInfo.transferableBalanceFormatted || (accountInfo.transferableBalance && accountInfo.transferableBalance.toFixed(2)) || "0.00"}
+  </span>
             </div>
             <div className="flex items-center">
               <span className="mr-1">未实现盈亏:</span>
