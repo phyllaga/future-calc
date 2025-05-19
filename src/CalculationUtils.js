@@ -189,32 +189,6 @@ export const calculatePositionValues = (pos, currentPrice, contractValue, feeRat
  * 可划转金额 = 余额 - 逐仓保证金之和 - 全仓保证金之和 + 当前全仓持仓亏损部分之和
  */
 export const calculateTransferableBalance = (positions, currentBalance) => {
-  // 复用可用余额的计算逻辑，因为公式相同
-  const { availableBalance, steps, totalIsolatedMargin, totalCrossMargin, totalCrossLoss } =
-      calculateAvailableBalance(positions, currentBalance);
-
-  // 修改步骤说明以反映这是可划转金额
-  const transferableSteps = [
-    `可划转金额计算公式：余额 - 逐仓保证金之和 - 全仓保证金之和 + 当前全仓持仓亏损部分之和`,
-    `逐仓保证金之和: ${totalIsolatedMargin.toFixed(2)}`,
-    `全仓保证金之和: ${totalCrossMargin.toFixed(2)}`,
-    `当前全仓持仓亏损部分之和: ${totalCrossLoss.toFixed(2)} (仅计算亏损的仓位)`,
-    `计算过程: ${parseFloat(currentBalance).toFixed(2)} - ${totalIsolatedMargin.toFixed(2)} - ${totalCrossMargin.toFixed(2)} + (${totalCrossLoss.toFixed(2)})`,
-    `= ${availableBalance.toFixed(2)}`
-  ];
-
-  return {
-    transferableBalance: availableBalance,  // 返回数值
-    transferableBalanceFormatted: availableBalance.toFixed(2), // 提供格式化版本
-    steps: transferableSteps
-  };
-};
-
-/**
- * 计算账户可用余额
- * 可用余额 = 余额 - 逐仓保证金之和 - 全仓保证金之和 + 当前全仓持仓亏损部分之和
- */
-export const calculateAvailableBalance = (positions, currentBalance) => {
   // 确保currentBalance是数字
   const balance = parseFloat(currentBalance || 0);
 
@@ -233,17 +207,63 @@ export const calculateAvailableBalance = (positions, currentBalance) => {
       .filter(p => p.marginType === 'cross' && !isPositionClosed(p) && parseFloat(p.unrealizedPnl || 0) < 0)
       .reduce((sum, p) => sum + parseFloat(p.unrealizedPnl || 0), 0);
 
-  // 计算可用余额
-  const availableBalance = balance - totalIsolatedMargin - totalCrossMargin + totalCrossLoss;
-  const availableBalanceFormatted = availableBalance.toFixed(2); // 格式化
+  // 计算可划转金额
+  const transferableBalance = balance - totalIsolatedMargin - totalCrossMargin + totalCrossLoss;
+  const transferableBalanceFormatted = transferableBalance.toFixed(2); // 格式化
 
   // 生成计算步骤说明
-  const steps = [
-    `可用余额计算公式：余额 - 逐仓保证金之和 - 全仓保证金之和 + 当前全仓持仓亏损部分之和`,
+  const transferableSteps = [
+    `可划转金额计算公式：余额 - 逐仓保证金之和 - 全仓保证金之和 + 当前全仓持仓亏损部分之和`,
     `逐仓保证金之和: ${totalIsolatedMargin.toFixed(2)}`,
     `全仓保证金之和: ${totalCrossMargin.toFixed(2)}`,
     `当前全仓持仓亏损部分之和: ${totalCrossLoss.toFixed(2)} (仅计算亏损的仓位)`,
     `计算过程: ${balance.toFixed(2)} - ${totalIsolatedMargin.toFixed(2)} - ${totalCrossMargin.toFixed(2)} + (${totalCrossLoss.toFixed(2)})`,
+    `= ${transferableBalanceFormatted}`
+  ];
+
+  return {
+    transferableBalance,  // 返回数值
+    transferableBalanceFormatted, // 提供格式化版本
+    steps: transferableSteps,
+    totalIsolatedMargin,
+    totalCrossMargin,
+    totalCrossLoss
+  };
+};
+/**
+ * 计算账户可用余额
+ * 可用余额 = 余额 - 逐仓保证金之和 - 全仓保证金之和 + 当前全仓持仓未实现盈亏之和
+ */
+export const calculateAvailableBalance = (positions, currentBalance) => {
+  // 确保currentBalance是数字
+  const balance = parseFloat(currentBalance || 0);
+
+  // 逐仓保证金之和
+  const totalIsolatedMargin = positions
+      .filter(p => p.marginType === 'isolated' && !isPositionClosed(p))
+      .reduce((sum, p) => sum + parseFloat(p.margin || 0), 0);
+
+  // 全仓保证金之和
+  const totalCrossMargin = positions
+      .filter(p => p.marginType === 'cross' && !isPositionClosed(p))
+      .reduce((sum, p) => sum + parseFloat(p.margin || 0), 0);
+
+  // 当前全仓持仓未实现盈亏之和（计算全部未实现盈亏，包括盈利和亏损）
+  const totalCrossPnl = positions
+      .filter(p => p.marginType === 'cross' && !isPositionClosed(p))
+      .reduce((sum, p) => sum + parseFloat(p.unrealizedPnl || 0), 0);
+
+  // 计算可用余额
+  const availableBalance = balance - totalIsolatedMargin - totalCrossMargin + totalCrossPnl;
+  const availableBalanceFormatted = availableBalance.toFixed(2); // 格式化
+
+  // 生成计算步骤说明
+  const steps = [
+    `可用余额计算公式：余额 - 逐仓保证金之和 - 全仓保证金之和 + 当前全仓持仓未实现盈亏之和`,
+    `逐仓保证金之和: ${totalIsolatedMargin.toFixed(2)}`,
+    `全仓保证金之和: ${totalCrossMargin.toFixed(2)}`,
+    `当前全仓持仓未实现盈亏之和: ${totalCrossPnl.toFixed(2)}`,
+    `计算过程: ${balance.toFixed(2)} - ${totalIsolatedMargin.toFixed(2)} - ${totalCrossMargin.toFixed(2)} + (${totalCrossPnl.toFixed(2)})`,
     `= ${availableBalanceFormatted}`
   ];
 
@@ -253,7 +273,7 @@ export const calculateAvailableBalance = (positions, currentBalance) => {
     steps,
     totalIsolatedMargin,
     totalCrossMargin,
-    totalCrossLoss
+    totalCrossPnl
   };
 };
 

@@ -654,11 +654,11 @@ export default function ContractFormulaCalculator() {
               <span className="mr-1">可用资金:</span>
               <span className="text-blue-500 hover:underline cursor-pointer" onClick={() => {
                 addToLog(`--- 可用余额计算 ---`);
-                addToLog(`可用余额计算公式：余额 - 逐仓保证金之和 - 全仓保证金之和 + 当前全仓持仓亏损部分之和`);
+                addToLog(`可用余额计算公式：余额 - 逐仓保证金之和 - 全仓保证金之和 + 当前全仓持仓未实现盈亏之和`);
                 addToLog(`逐仓保证金之和: ${accountInfo.totalIsolatedMargin.toFixed(2)}`);
                 addToLog(`全仓保证金之和: ${accountInfo.totalCrossMargin.toFixed(2)}`);
-                addToLog(`当前全仓持仓亏损部分之和: ${accountInfo.totalCrossLoss.toFixed(2)} (仅计算亏损的仓位)`);
-                addToLog(`计算过程: ${currentBalance.toFixed(2)} - ${accountInfo.totalIsolatedMargin.toFixed(2)} - ${accountInfo.totalCrossMargin.toFixed(2)} + (${accountInfo.totalCrossLoss.toFixed(2)})`);
+                addToLog(`当前全仓持仓未实现盈亏之和: ${accountInfo.totalCrossPnl.toFixed(2)}`);
+                addToLog(`计算过程: ${currentBalance.toFixed(2)} - ${accountInfo.totalIsolatedMargin.toFixed(2)} - ${accountInfo.totalCrossMargin.toFixed(2)} + (${accountInfo.totalCrossPnl.toFixed(2)})`);
                 addToLog(`= ${accountInfo.availableBalanceFormatted}`);
               }}>
     {accountInfo.availableBalanceFormatted || (accountInfo.availableBalance && accountInfo.availableBalance.toFixed(2)) || "0.00"}
