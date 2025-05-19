@@ -100,7 +100,7 @@ export const logCalculation = (type, pos, currentPrice, contractValue, feeRate, 
       calculationResult = calculateLiquidationPrice(pos, contractValue);
       break;
     case 'margin':
-      calculationResult = calculateMargin(pos);
+      calculationResult = calculateMargin(pos,contractValue);
       break;
     case 'maintenanceMargin':
       calculationResult = calculateMaintenanceMargin(pos, contractValue, maintenanceMarginRate);
