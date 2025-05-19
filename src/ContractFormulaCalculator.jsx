@@ -240,55 +240,27 @@ export default function ContractFormulaCalculator() {
     const closePrice = parseFloat(prompt('请输入平仓价格', currentPrice));
     if (isNaN(closePrice)) return;
 
-    const pos = positions[index];
-    // 计算平仓盈亏
-    const delta = pos.direction === 'long' ? closePrice - pos.entryPrice : pos.entryPrice - closePrice;
-    const pnl = delta * pos.quantity * contractValue;
+    // 使用更新的closePosition函数，它会立即重新计算所有仓位
+    const result = closePosition({
+      position: positions[index],
+      index,
+      closePrice,
+      positions,
+      currentBalance,
+      contractValue,
+      feeRate,
+      maintenanceMarginRate,
+      addToLog,
+      currentUser,
+      currentDateTime
+    });
 
-    // 计算平仓手续费
-    const closingValue = pos.quantity * contractValue * closePrice;
-    const closingFee = closingValue * feeRate;
+    // 使用函数返回的结果更新状态
+    setCurrentBalance(result.newBalance);
+    setPositions(result.updatedPositions);
 
-    // 平仓后更新当前余额 = 当前余额 + 盈亏 - 平仓手续费
-    const newBalance = currentBalance + pnl - closingFee;
-
-    addToLog(`--- 平仓操作 ---`);
-    addToLog(`用户: ${currentUser}`);
-    addToLog(`时间: ${currentDateTime} (UTC)`);
-    addToLog(`仓位: ${pos.symbol} ${translateDirection(pos.direction)} ${pos.quantity}张 @${pos.entryPrice}`);
-    addToLog(`平仓价格: ${closePrice}`);
-
-    const formula = pos.direction === 'long' ? '(平仓价 - 开仓价)' : '(开仓价 - 平仓价)';
-    addToLog(`已实现盈亏计算公式：${formula} × 数量 × 合约面值`);
-    addToLog(`计算过程：${pos.direction === 'long' ? `(${closePrice} - ${pos.entryPrice})` : `(${pos.entryPrice} - ${closePrice})`} × ${pos.quantity} × ${contractValue}`);
-    addToLog(`= ${delta.toFixed(4)} × ${pos.quantity} × ${contractValue}`);
-    addToLog(`= ${pnl.toFixed(2)}`);
-
-    addToLog(`平仓手续费计算公式：仓位价值(平仓时) × 手续费率`);
-    addToLog(`计算过程：${pos.quantity} × ${contractValue} × ${closePrice} × ${feeRate} = ${closingFee.toFixed(4)}`);
-
-    addToLog(`余额变化计算公式：当前余额 + 盈亏 - 平仓手续费`);
-    addToLog(`计算过程：${currentBalance.toFixed(2)} + ${pnl.toFixed(2)} - ${closingFee.toFixed(4)}`);
-    addToLog(`= ${newBalance.toFixed(2)}`);
-
-    // 更新仓位状态
-    const updated = [...positions];
-    const updatedPos = updated[index];
-    updatedPos.closed = true;
-    updatedPos.closePrice = closePrice;
-    updatedPos.realizedPnl = pnl.toFixed(2);  // 设置已实现盈亏
-    updatedPos.unrealizedPnl = "0.00";        // 平仓后未实现盈亏为0
-    updatedPos.closeFee = closingFee.toFixed(4); // 单独记录平仓手续费
-    updatedPos.closedAt = new Date().toISOString();
-
-    setCurrentBalance(newBalance);
-    setPositions(updated);
-
-    addToLog(`仓位已平仓，新余额: ${newBalance.toFixed(2)}`);
-
-    // 平仓后需要重新计算所有仓位的DEX和爆仓价
-    addToLog(`--- 平仓后重新计算所有仓位 ---`);
-    setTimeout(() => recalculatePositions(), 100);
+    // 不需要额外调用recalculatePositions，因为closePosition已经完成了重新计算
+    addToLog(`平仓完成，所有仓位的DEX和爆仓价已更新`);
   };
 
   // 删除仓位
