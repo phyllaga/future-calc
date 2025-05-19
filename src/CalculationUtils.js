@@ -933,47 +933,6 @@ function generateAccountMetricsSteps(
 
   return steps;
 }
-/**
- * 计算账户可用余额
- * 可用余额 = 余额 - 逐仓保证金之和 - 全仓保证金之和 + 当前全仓持仓亏损部分之和
- */
-export const calculateAvailableBalance = (positions, currentBalance) => {
-  // 逐仓保证金之和
-  const totalIsolatedMargin = positions
-      .filter(p => p.marginType === 'isolated' && !isPositionClosed(p))
-      .reduce((sum, p) => sum + parseFloat(p.margin), 0);
-
-  // 全仓保证金之和
-  const totalCrossMargin = positions
-      .filter(p => p.marginType === 'cross' && !isPositionClosed(p))
-      .reduce((sum, p) => sum + parseFloat(p.margin), 0);
-
-  // 当前全仓持仓亏损部分之和（仅计算亏损的仓位，盈利的不计入）
-  const totalCrossLoss = positions
-      .filter(p => p.marginType === 'cross' && !isPositionClosed(p) && parseFloat(p.unrealizedPnl) < 0)
-      .reduce((sum, p) => sum + parseFloat(p.unrealizedPnl), 0);
-
-  // 计算可用余额
-  const availableBalance = currentBalance - totalIsolatedMargin - totalCrossMargin + totalCrossLoss;
-
-  // 生成计算步骤说明
-  const steps = [
-    `可用余额计算公式：余额 - 逐仓保证金之和 - 全仓保证金之和 + 当前全仓持仓亏损部分之和`,
-    `逐仓保证金之和: ${totalIsolatedMargin.toFixed(2)}`,
-    `全仓保证金之和: ${totalCrossMargin.toFixed(2)}`,
-    `当前全仓持仓亏损部分之和: ${totalCrossLoss.toFixed(2)} (仅计算亏损的仓位)`,
-    `计算过程: ${currentBalance.toFixed(2)} - ${totalIsolatedMargin.toFixed(2)} - ${totalCrossMargin.toFixed(2)} + (${totalCrossLoss.toFixed(2)})`,
-    `= ${availableBalance.toFixed(2)}`
-  ];
-
-  return {
-    availableBalance: availableBalance.toFixed(2),
-    steps,
-    totalIsolatedMargin,
-    totalCrossMargin,
-    totalCrossLoss
-  };
-};
 
 /**
  * 计算账户信息
