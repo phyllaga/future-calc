@@ -769,7 +769,7 @@ export default function ContractFormulaCalculator() {
                     >
                       {isPositionClosed(pos) ? "-" : (
                           <>
-                            {pos.dex?.toFixed(4)}
+                            {parseFloat(pos.dex).toFixed(4)}
                             {pos.isMerged && <span className="text-xs text-yellow-500 ml-1">(合并)</span>}
                           </>
                       )}
