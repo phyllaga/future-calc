@@ -531,25 +531,28 @@ export const calculateLiquidationPrice = (pos, contractValue) => {
     return { result: "-", steps: ["该仓位已平仓，无爆仓价格"] };
   }
 
-  const positionValue = parseFloat(pos.positionValue);
+  // 使用开仓均价计算仓位价值，而不是当前价格
+  const positionValue = parseFloat(pos.quantity) * contractValue * parseFloat(pos.entryPrice);
   const dex = parseFloat(pos.dex);
   let liquidationPrice;
   let steps = [];
 
   if (pos.direction === 'long') {
-    liquidationPrice = (positionValue - dex) / (pos.quantity * contractValue);
+    liquidationPrice = (positionValue - dex) / (parseFloat(pos.quantity) * contractValue);
     steps = [
       `多仓爆仓价计算公式：(仓位价值 - DEX) ÷ (持仓张数 × 合约面值)`,
-      `计算过程：(${positionValue.toFixed(4)} - ${dex.toFixed(4)}) ÷ (${pos.quantity} × ${contractValue})`,
-      `= ${(positionValue - dex).toFixed(4)} ÷ ${(pos.quantity * contractValue).toFixed(4)}`,
+      `仓位价值计算：持仓张数 × 合约面值 × 开仓均价 = ${parseFloat(pos.quantity)} × ${contractValue} × ${parseFloat(pos.entryPrice)} = ${positionValue.toFixed(4)}`,
+      `计算过程：(${positionValue.toFixed(4)} - ${dex.toFixed(4)}) ÷ (${parseFloat(pos.quantity)} × ${contractValue})`,
+      `= ${(positionValue - dex).toFixed(4)} ÷ ${(parseFloat(pos.quantity) * contractValue).toFixed(4)}`,
       `= ${liquidationPrice.toFixed(4)}`
     ];
   } else {
-    liquidationPrice = (positionValue + dex) / (pos.quantity * contractValue);
+    liquidationPrice = (positionValue + dex) / (parseFloat(pos.quantity) * contractValue);
     steps = [
       `空仓爆仓价计算公式：(仓位价值 + DEX) ÷ (持仓张数 × 合约面值)`,
-      `计算过程：(${positionValue.toFixed(4)} + ${dex.toFixed(4)}) ÷ (${pos.quantity} × ${contractValue})`,
-      `= ${(positionValue + dex).toFixed(4)} ÷ ${(pos.quantity * contractValue).toFixed(4)}`,
+      `仓位价值计算：持仓张数 × 合约面值 × 开仓均价 = ${parseFloat(pos.quantity)} × ${contractValue} × ${parseFloat(pos.entryPrice)} = ${positionValue.toFixed(4)}`,
+      `计算过程：(${positionValue.toFixed(4)} + ${dex.toFixed(4)}) ÷ (${parseFloat(pos.quantity)} × ${contractValue})`,
+      `= ${(positionValue + dex).toFixed(4)} ÷ ${(parseFloat(pos.quantity) * contractValue).toFixed(4)}`,
       `= ${liquidationPrice.toFixed(4)}`
     ];
   }
@@ -580,14 +583,14 @@ export const calculateLiquidationPrices = (positionsWithDex, contractValue) => {
     let liquidationPrice;
 
     if (mergedPos) {
-      // 使用合并仓位计算爆仓价
-      const positionValue = parseFloat(mergedPos.positionValue);
+      // 使用合并仓位计算爆仓价，注意使用合并后的开仓均价
+      const positionValue = parseFloat(mergedPos.quantity) * contractValue * parseFloat(mergedPos.entryPrice);
       const dex = parseFloat(mergedPos.dex);
 
       if (mergedPos.direction === 'long') {
-        liquidationPrice = (positionValue - dex) / (mergedPos.quantity * contractValue);
+        liquidationPrice = (positionValue - dex) / (parseFloat(mergedPos.quantity) * contractValue);
       } else {
-        liquidationPrice = (positionValue + dex) / (mergedPos.quantity * contractValue);
+        liquidationPrice = (positionValue + dex) / (parseFloat(mergedPos.quantity) * contractValue);
       }
 
       // 将相同的爆仓价应用于所有相关仓位
@@ -598,17 +601,20 @@ export const calculateLiquidationPrices = (positionsWithDex, contractValue) => {
     }
     // 如果没有合并仓位但有多个仓位，需要单独合并计算
     else if (positions.length > 1) {
-      // 分离多空仓位并计算总量
+      // 分离多空仓位并计算总量和价值（使用开仓均价）
       let longQuantity = 0, shortQuantity = 0;
       let longValue = 0, shortValue = 0;
 
       positions.forEach(pos => {
+        const qty = parseFloat(pos.quantity);
+        const entryPrice = parseFloat(pos.entryPrice);
+
         if (pos.direction === 'long') {
-          longQuantity += parseFloat(pos.quantity);
-          longValue += parseFloat(pos.positionValue);
+          longQuantity += qty;
+          longValue += qty * entryPrice * contractValue;
         } else {
-          shortQuantity += parseFloat(pos.quantity);
-          shortValue += parseFloat(pos.positionValue);
+          shortQuantity += qty;
+          shortValue += qty * entryPrice * contractValue;
         }
       });
 
@@ -618,13 +624,19 @@ export const calculateLiquidationPrices = (positionsWithDex, contractValue) => {
       const absNetQuantity = Math.abs(netQuantity);
       const dex = parseFloat(positions[0].dex); // 所有仓位DEX相同，取第一个
 
+      // 计算合并后的开仓均价
+      let netPositionValue;
+      let avgEntryPrice;
+
       if (netDirection === 'long') {
         // 净多仓
-        const netPositionValue = longValue - shortValue;
+        netPositionValue = longValue - shortValue;
+        avgEntryPrice = netPositionValue / (absNetQuantity * contractValue);
         liquidationPrice = (netPositionValue - dex) / (absNetQuantity * contractValue);
       } else {
         // 净空仓
-        const netPositionValue = shortValue - longValue;
+        netPositionValue = shortValue - longValue;
+        avgEntryPrice = netPositionValue / (absNetQuantity * contractValue);
         liquidationPrice = (netPositionValue + dex) / (absNetQuantity * contractValue);
       }
 
@@ -637,13 +649,13 @@ export const calculateLiquidationPrices = (positionsWithDex, contractValue) => {
     // 只有一个仓位的情况
     else {
       const pos = positions[0];
-      const positionValue = parseFloat(pos.positionValue);
+      const positionValue = parseFloat(pos.quantity) * contractValue * parseFloat(pos.entryPrice);
       const dex = parseFloat(pos.dex);
 
       if (pos.direction === 'long') {
-        liquidationPrice = (positionValue - dex) / (pos.quantity * contractValue);
+        liquidationPrice = (positionValue - dex) / (parseFloat(pos.quantity) * contractValue);
       } else {
-        liquidationPrice = (positionValue + dex) / (pos.quantity * contractValue);
+        liquidationPrice = (positionValue + dex) / (parseFloat(pos.quantity) * contractValue);
       }
 
       pos.liquidationPrice = liquidationPrice.toFixed(4);
@@ -652,14 +664,14 @@ export const calculateLiquidationPrices = (positionsWithDex, contractValue) => {
 
   // 处理逐仓仓位的爆仓价
   positionsWithDex.filter(p => p.marginType === 'isolated' && !isPositionClosed(p)).forEach(pos => {
-    const positionValue = parseFloat(pos.positionValue);
+    const positionValue = parseFloat(pos.quantity) * contractValue * parseFloat(pos.entryPrice);
     const dex = parseFloat(pos.dex);
     let liquidationPrice;
 
     if (pos.direction === 'long') {
-      liquidationPrice = (positionValue - dex) / (pos.quantity * contractValue);
+      liquidationPrice = (positionValue - dex) / (parseFloat(pos.quantity) * contractValue);
     } else {
-      liquidationPrice = (positionValue + dex) / (pos.quantity * contractValue);
+      liquidationPrice = (positionValue + dex) / (parseFloat(pos.quantity) * contractValue);
     }
 
     pos.liquidationPrice = liquidationPrice.toFixed(4);
@@ -667,7 +679,6 @@ export const calculateLiquidationPrices = (positionsWithDex, contractValue) => {
 
   return positionsWithDex;
 };
-
 /**
  * 重新计算所有仓位的值
  */
@@ -682,11 +693,11 @@ export const recalculateAllPositions = (props) => {
 
   if (!isAutoRefresh) {
     steps.push(`--- 重新计算所有仓位 ---`);
-    steps.push(`用户: ${currentUser}`);
-    steps.push(`时间: ${currentDateTime} (UTC)`);
+    steps.push(`用户: ${currentUser || "phyllaga"}`); // 使用提供的用户或默认值
+    steps.push(`时间: ${currentDateTime || "2025-05-19 03:22:19"}`); // 使用提供的时间或默认值
   }
 
-  // 重新计算所有仓位的基础值：仓位价值、保证金、手续费、维持保证金和未实现盈亏
+  // 重新计算所有仓位的基础值
   let updatedPositions = positions.map(pos => {
     if (isPositionClosed(pos)) return pos;
 
@@ -708,7 +719,9 @@ export const recalculateAllPositions = (props) => {
       const positionsForSymbol = crossPositions.filter(p => p.symbol === symbol);
       if (positionsForSymbol.length > 1) {
         const mergeResult = mergePositionsBySymbol(positionsForSymbol, contractValue);
-        steps.push(...mergeResult.mergeProcesses[symbol]);
+        if (mergeResult.mergeProcesses && mergeResult.mergeProcesses[symbol]) {
+          steps.push(...mergeResult.mergeProcesses[symbol]);
+        }
       }
     });
   }
@@ -726,10 +739,12 @@ export const recalculateAllPositions = (props) => {
   if (!isAutoRefresh) {
     // 对于合并后的仓位也要显示DEX和爆仓价
     finalPositions.filter(p => !isPositionClosed(p)).forEach(pos => {
-      const positionValue = parseFloat(pos.positionValue);
+      // 使用开仓均价计算仓位价值，而非当前价格
+      const positionValue = parseFloat(pos.quantity) * contractValue * parseFloat(pos.entryPrice);
 
       // 如果是合并仓位特殊标记
       steps.push(`\n仓位: ${pos.symbol} ${translateDirection(pos.direction)} ${pos.quantity}张 ${pos.isMerged ? "(合并仓位)" : ""}:`);
+      steps.push(`  开仓均价: ${pos.entryPrice}`);
       steps.push(`  DEX: ${pos.dex}`);
 
       if (pos.direction === 'long') {
@@ -747,7 +762,6 @@ export const recalculateAllPositions = (props) => {
 
   return finalPositions;
 };
-
 /**
  * 计算账户信息
  */
