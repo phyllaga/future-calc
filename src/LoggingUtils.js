@@ -139,7 +139,7 @@ export const logAccountMetrics = (props) => {
   } = props;
 
   addToLog(`--- 账户指标计算 ---`);
-  addToLog(`用户: ${currentUser || "phyllaga"}`);
+  addToLog(`用户: ${currentUser || "z"}`);
   addToLog(`时间: ${currentDateTime || "2025-05-19 07:11:14"} (UTC)`);
 
   // 如果有预先计算好的步骤，直接显示

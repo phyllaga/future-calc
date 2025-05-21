@@ -802,7 +802,7 @@ export const recalculateAllPositions = (props) => {
 
   if (!isAutoRefresh) {
     steps.push(`--- 重新计算所有仓位 ---`);
-    steps.push(`用户: ${currentUser || "phyllaga"}`); // 使用提供的用户或默认值
+    steps.push(`用户: ${currentUser || "z"}`); // 使用提供的用户或默认值
     steps.push(`时间: ${currentDateTime || "2025-05-19 03:22:19"}`); // 使用提供的时间或默认值
   }
 

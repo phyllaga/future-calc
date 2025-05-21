@@ -45,7 +45,7 @@ export default function ContractFormulaCalculator() {
 
   // 当前日期和时间，用户名
   const currentDateTime = "2025-05-16 07:44:03";
-  const currentUser = "phyllaga";
+  const currentUser = "z";
 
   // 添加日志
   const addToLog = (message) => {
