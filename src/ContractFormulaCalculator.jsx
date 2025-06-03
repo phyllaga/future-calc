@@ -360,50 +360,78 @@ export default function ContractFormulaCalculator() {
   };
 
   // 修改 handleLogCalculation 函数
+  // 修改 handleLogCalculation 函数
   const handleLogCalculation = (type, pos) => {
-    // 如果是爆仓价计算，且是合并仓位或全仓仓位，需要特殊处理
-    if ((type === 'liq' || type === 'dex') && (pos.isMerged || pos.marginType === 'cross')) {
+    // 如果是DEX或爆仓价计算，且是全仓仓位，先检查是否需要合并计算
+    if ((type === 'dex' || type === 'liq') && pos.marginType === 'cross') {
       // 获取相同交易对的全仓仓位
       const sameCrossPositions = positions.filter(
           p => p.marginType === 'cross' && p.symbol === pos.symbol && !isPositionClosed(p)
       );
 
-      // 如果是合并仓位或有多个相同交易对的全仓仓位，先显示合并计算
-      if (pos.isMerged || sameCrossPositions.length > 1) {
+      // 如果有多个相同交易对的全仓仓位，先显示合并计算
+      if (sameCrossPositions.length > 1) {
         addToLog(`--- ${pos.symbol} 全仓仓位合并计算 ---`);
+        logMergedPositionCalculation(sameCrossPositions, addToLog, contractValue);
 
-        // 如果是合并仓位，直接使用原始仓位数据计算
-        if (pos.isMerged && pos.mergeInfo && pos.mergeInfo.originalPositions) {
-          logMergedPositionCalculation(pos.mergeInfo.originalPositions, addToLog, contractValue);
-        } else {
-          // 否则使用找到的相同交易对仓位
-          logMergedPositionCalculation(sameCrossPositions, addToLog, contractValue);
-        }
-
-        // 对于爆仓价，显示合并后的爆仓价计算过程
+        // 如果是爆仓价计算，显示合并后的爆仓价计算
         if (type === 'liq') {
-          addToLog(`\n--- 使用合并后的仓位计算爆仓价 ---`);
-          const positionValue = parseFloat(pos.quantity) * contractValue * parseFloat(pos.entryPrice);
-          const dex = parseFloat(pos.dex);
+          // 获取合并后的仓位信息
+          const { mergedPositions } = mergePositionsBySymbol(sameCrossPositions, contractValue);
+          const mergedPos = mergedPositions.find(p => p.isMerged && p.symbol === pos.symbol);
 
-          if (pos.direction === 'long') {
-            const liquidationPrice = (positionValue - dex) / (parseFloat(pos.quantity) * contractValue);
-            addToLog(`多仓爆仓价计算公式：(仓位价值 - DEX) ÷ (持仓张数 × 合约面值)`);
-            addToLog(`仓位价值计算：持仓张数 × 合约面值 × 开仓均价 = ${parseFloat(pos.quantity)} × ${contractValue} × ${parseFloat(pos.entryPrice)} = ${positionValue.toFixed(4)}`);
-            addToLog(`计算过程：(${positionValue.toFixed(4)} - ${dex.toFixed(4)}) ÷ (${parseFloat(pos.quantity)} × ${contractValue})`);
-            addToLog(`= ${(positionValue - dex).toFixed(4)} ÷ ${(parseFloat(pos.quantity) * contractValue).toFixed(4)}`);
-            addToLog(`= ${liquidationPrice.toFixed(4)}`);
-          } else {
-            const liquidationPrice = (positionValue + dex) / (parseFloat(pos.quantity) * contractValue);
-            addToLog(`空仓爆仓价计算公式：(仓位价值 + DEX) ÷ (持仓张数 × 合约面值)`);
-            addToLog(`仓位价值计算：持仓张数 × 合约面值 × 开仓均价 = ${parseFloat(pos.quantity)} × ${contractValue} × ${parseFloat(pos.entryPrice)} = ${positionValue.toFixed(4)}`);
-            addToLog(`计算过程：(${positionValue.toFixed(4)} + ${dex.toFixed(4)}) ÷ (${parseFloat(pos.quantity)} × ${contractValue})`);
-            addToLog(`= ${(positionValue + dex).toFixed(4)} ÷ ${(parseFloat(pos.quantity) * contractValue).toFixed(4)}`);
-            addToLog(`= ${liquidationPrice.toFixed(4)}`);
+          if (mergedPos) {
+            addToLog(`\n--- 使用合并后的仓位计算爆仓价 ---`);
+            const positionValue = Math.abs(parseFloat(mergedPos.quantity) * contractValue * parseFloat(mergedPos.entryPrice));
+            const dex = parseFloat(mergedPos.dex || pos.dex);
+
+            // 根据合并后的方向使用正确的计算公式
+            if (mergedPos.direction === 'long') {
+              const liquidationPrice = (positionValue - dex) / (parseFloat(mergedPos.quantity) * contractValue);
+              addToLog(`多仓爆仓价计算公式：(仓位价值 - DEX) ÷ (持仓张数 × 合约面值)`);
+              addToLog(`仓位价值计算：持仓张数 × 合约面值 × 开仓均价 = ${parseFloat(mergedPos.quantity)} × ${contractValue} × ${parseFloat(mergedPos.entryPrice)} = ${positionValue.toFixed(4)}`);
+              addToLog(`计算过程：(${positionValue.toFixed(4)} - ${dex.toFixed(4)}) ÷ (${parseFloat(mergedPos.quantity)} × ${contractValue})`);
+              addToLog(`= ${(positionValue - dex).toFixed(4)} ÷ ${(parseFloat(mergedPos.quantity) * contractValue).toFixed(4)}`);
+              addToLog(`= ${liquidationPrice.toFixed(4)}`);
+            } else {
+              const liquidationPrice = (positionValue + dex) / (parseFloat(mergedPos.quantity) * contractValue);
+              addToLog(`空仓爆仓价计算公式：(仓位价值 + DEX) ÷ (持仓张数 × 合约面值)`);
+              addToLog(`仓位价值计算：持仓张数 × 合约面值 × 开仓均价 = ${parseFloat(mergedPos.quantity)} × ${contractValue} × ${Math.abs(parseFloat(mergedPos.entryPrice))} = ${positionValue.toFixed(4)}`);
+              addToLog(`计算过程：(${positionValue.toFixed(4)} + ${dex.toFixed(4)}) ÷ (${parseFloat(mergedPos.quantity)} × ${contractValue})`);
+              addToLog(`= ${(positionValue + dex).toFixed(4)} ÷ ${(parseFloat(mergedPos.quantity) * contractValue).toFixed(4)}`);
+              addToLog(`= ${liquidationPrice.toFixed(4)}`);
+            }
+            return;
           }
-          return;
         }
       }
+    }
+
+    // 特殊处理合并仓位的爆仓价计算
+    if (type === 'liq' && pos.isMerged) {
+      addToLog(`--- 合并仓位爆仓价计算 ---`);
+
+      // 使用正确的合并仓位数据
+      const positionValue = Math.abs(parseFloat(pos.quantity) * contractValue * parseFloat(pos.entryPrice));
+      const dex = parseFloat(pos.dex);
+
+      // 根据实际方向使用正确的计算公式
+      if (pos.direction === 'long') {
+        const liquidationPrice = (positionValue - dex) / (parseFloat(pos.quantity) * contractValue);
+        addToLog(`多仓爆仓价计算公式：(仓位价值 - DEX) ÷ (持仓张数 × 合约面值)`);
+        addToLog(`仓位价值计算：持仓张数 × 合约面值 × 开仓均价 = ${parseFloat(pos.quantity)} × ${contractValue} × ${parseFloat(pos.entryPrice)} = ${positionValue.toFixed(4)}`);
+        addToLog(`计算过程：(${positionValue.toFixed(4)} - ${dex.toFixed(4)}) ÷ (${parseFloat(pos.quantity)} × ${contractValue})`);
+        addToLog(`= ${(positionValue - dex).toFixed(4)} ÷ ${(parseFloat(pos.quantity) * contractValue).toFixed(4)}`);
+        addToLog(`= ${liquidationPrice.toFixed(4)}`);
+      } else {
+        const liquidationPrice = (positionValue + dex) / (parseFloat(pos.quantity) * contractValue);
+        addToLog(`空仓爆仓价计算公式：(仓位价值 + DEX) ÷ (持仓张数 × 合约面值)`);
+        addToLog(`仓位价值计算：持仓张数 × 合约面值 × 开仓均价 = ${parseFloat(pos.quantity)} × ${contractValue} × ${Math.abs(parseFloat(pos.entryPrice))} = ${positionValue.toFixed(4)}`);
+        addToLog(`计算过程：(${positionValue.toFixed(4)} + ${dex.toFixed(4)}) ÷ (${parseFloat(pos.quantity)} × ${contractValue})`);
+        addToLog(`= ${(positionValue + dex).toFixed(4)} ÷ ${(parseFloat(pos.quantity) * contractValue).toFixed(4)}`);
+        addToLog(`= ${liquidationPrice.toFixed(4)}`);
+      }
+      return;
     }
 
     // 常规计算日志
@@ -412,6 +440,7 @@ export default function ContractFormulaCalculator() {
         maintenanceMarginRate, positions, addToLog, currentUser, currentDateTime, currentBalance
     );
   };
+
 
   // 处理账户信息计算
   const handleAccountMetrics = () => {
