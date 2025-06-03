@@ -359,26 +359,57 @@ export default function ContractFormulaCalculator() {
     }
   };
 
-  // 处理计算日志
+  // 修改 handleLogCalculation 函数
   const handleLogCalculation = (type, pos) => {
-    // 如果是DEX或爆仓价计算，且是全仓仓位，先检查是否需要合并计算
-    if ((type === 'dex' || type === 'liq') && pos.marginType === 'cross') {
+    // 如果是爆仓价计算，且是合并仓位或全仓仓位，需要特殊处理
+    if ((type === 'liq' || type === 'dex') && (pos.isMerged || pos.marginType === 'cross')) {
       // 获取相同交易对的全仓仓位
       const sameCrossPositions = positions.filter(
           p => p.marginType === 'cross' && p.symbol === pos.symbol && !isPositionClosed(p)
       );
 
-      // 如果有多个相同交易对的全仓仓位，先显示合并计算
-      if (sameCrossPositions.length > 1) {
+      // 如果是合并仓位或有多个相同交易对的全仓仓位，先显示合并计算
+      if (pos.isMerged || sameCrossPositions.length > 1) {
         addToLog(`--- ${pos.symbol} 全仓仓位合并计算 ---`);
-        logMergedPositionCalculation(sameCrossPositions, addToLog,contractValue);
+
+        // 如果是合并仓位，直接使用原始仓位数据计算
+        if (pos.isMerged && pos.mergeInfo && pos.mergeInfo.originalPositions) {
+          logMergedPositionCalculation(pos.mergeInfo.originalPositions, addToLog, contractValue);
+        } else {
+          // 否则使用找到的相同交易对仓位
+          logMergedPositionCalculation(sameCrossPositions, addToLog, contractValue);
+        }
+
+        // 对于爆仓价，显示合并后的爆仓价计算过程
+        if (type === 'liq') {
+          addToLog(`\n--- 使用合并后的仓位计算爆仓价 ---`);
+          const positionValue = parseFloat(pos.quantity) * contractValue * parseFloat(pos.entryPrice);
+          const dex = parseFloat(pos.dex);
+
+          if (pos.direction === 'long') {
+            const liquidationPrice = (positionValue - dex) / (parseFloat(pos.quantity) * contractValue);
+            addToLog(`多仓爆仓价计算公式：(仓位价值 - DEX) ÷ (持仓张数 × 合约面值)`);
+            addToLog(`仓位价值计算：持仓张数 × 合约面值 × 开仓均价 = ${parseFloat(pos.quantity)} × ${contractValue} × ${parseFloat(pos.entryPrice)} = ${positionValue.toFixed(4)}`);
+            addToLog(`计算过程：(${positionValue.toFixed(4)} - ${dex.toFixed(4)}) ÷ (${parseFloat(pos.quantity)} × ${contractValue})`);
+            addToLog(`= ${(positionValue - dex).toFixed(4)} ÷ ${(parseFloat(pos.quantity) * contractValue).toFixed(4)}`);
+            addToLog(`= ${liquidationPrice.toFixed(4)}`);
+          } else {
+            const liquidationPrice = (positionValue + dex) / (parseFloat(pos.quantity) * contractValue);
+            addToLog(`空仓爆仓价计算公式：(仓位价值 + DEX) ÷ (持仓张数 × 合约面值)`);
+            addToLog(`仓位价值计算：持仓张数 × 合约面值 × 开仓均价 = ${parseFloat(pos.quantity)} × ${contractValue} × ${parseFloat(pos.entryPrice)} = ${positionValue.toFixed(4)}`);
+            addToLog(`计算过程：(${positionValue.toFixed(4)} + ${dex.toFixed(4)}) ÷ (${parseFloat(pos.quantity)} × ${contractValue})`);
+            addToLog(`= ${(positionValue + dex).toFixed(4)} ÷ ${(parseFloat(pos.quantity) * contractValue).toFixed(4)}`);
+            addToLog(`= ${liquidationPrice.toFixed(4)}`);
+          }
+          return;
+        }
       }
     }
 
     // 常规计算日志
     logCalculation(
         type, pos, currentPrice, contractValue, feeRate,
-        maintenanceMarginRate, positions, addToLog, currentUser, currentDateTime,currentBalance
+        maintenanceMarginRate, positions, addToLog, currentUser, currentDateTime, currentBalance
     );
   };
 
