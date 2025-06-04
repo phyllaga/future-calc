@@ -42,6 +42,7 @@ export default function ContractFormulaCalculator() {
 
   // 自动刷新定时器引用
   const refreshTimerRef = useRef(null);
+// 处理打赏功能
   const handleDonation = async () => {
     const donationAddress = '0xe67b62825fee3322a68e9e7e10d0e9223fabc39c';
 
@@ -58,22 +59,31 @@ export default function ContractFormulaCalculator() {
 
       // 弹出输入框让用户输入打赏金额
       const amountETH = prompt('请输入打赏金额 (ETH)', '0.01');
-      if (!amountETH || parseFloat(amountETH) <= 0) return;
+      if (!amountETH || isNaN(parseFloat(amountETH)) || parseFloat(amountETH) <= 0) {
+        addToLog(`打赏取消或金额无效`);
+        return;
+      }
 
       // 将 ETH 转换为 Wei (1 ETH = 10^18 Wei)
-      const amountWei = `0x${(parseFloat(amountETH) * 1e18).toString(16)}`;
+      // 确保生成有效的十六进制值，且不带小数点
+      const amountWei = `0x${Math.floor(parseFloat(amountETH) * 1e18).toString(16)}`;
+
+      addToLog(`--- 发起打赏交易 ---`);
+      addToLog(`打赏地址: ${donationAddress}`);
+      addToLog(`打赏金额: ${amountETH} ETH (${amountWei} Wei)`);
 
       // 请求 MetaMask 发送交易
       const transactionParameters = {
         to: donationAddress,
         from: account,
-        value: amountWei
+        value: amountWei,
+        // 添加 gas 参数，让 MetaMask 自动估算
+        gas: '',
+        // 添加可选的 chainId
+        chainId: window.ethereum.chainId || '0x1' // 默认为以太坊主网
       };
 
-      addToLog(`--- 发起打赏交易 ---`);
-      addToLog(`打赏地址: ${donationAddress}`);
-      addToLog(`打赏金额: ${amountETH} ETH`);
-
+      // 发送交易请求
       const txHash = await window.ethereum.request({
         method: 'eth_sendTransaction',
         params: [transactionParameters],
@@ -83,10 +93,16 @@ export default function ContractFormulaCalculator() {
       addToLog(`感谢您的支持! ❤️`);
 
     } catch (error) {
-      console.error(error);
+      console.error('打赏交易错误:', error);
       addToLog(`打赏失败: ${error.message || '未知错误'}`);
+
+      // 更详细的错误信息记录，帮助调试
+      if (error.code) {
+        addToLog(`错误代码: ${error.code}`);
+      }
     }
   };
+
   // 当前日期和时间，用户名
   const currentDateTime = "2025-05-16 07:44:03";
   const currentUser = "z";
