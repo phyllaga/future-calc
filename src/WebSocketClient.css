@@ -1,0 +1,293 @@
+/* WebSocketClient.css */
+
+.ws-client-container {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #f5f7fa;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+    color: #2c3e50;
+    text-align: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #e0e6ed;
+}
+
+.connection-panel,
+.subscription-panel {
+    background-color: white;
+    border-radius: 6px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.05);
+}
+
+.form-group {
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+}
+
+.form-group label {
+    min-width: 100px;
+    font-weight: 600;
+    color: #495057;
+}
+
+.form-group input {
+    flex: 1;
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid #ced4da;
+    font-size: 14px;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #80bdff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.form-group input:disabled {
+    background-color: #e9ecef;
+    cursor: not-allowed;
+}
+
+.connection-actions,
+.subscription-actions {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-top: 15px;
+}
+
+button {
+    padding: 10px 18px;
+    border-radius: 4px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    outline: none;
+}
+
+button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.connect-button {
+    background-color: #28a745;
+    color: white;
+}
+
+.connect-button:hover:not(:disabled) {
+    background-color: #218838;
+}
+
+.disconnect-button {
+    background-color: #dc3545;
+    color: white;
+}
+
+.disconnect-button:hover:not(:disabled) {
+    background-color: #c82333;
+}
+
+.subscribe-button {
+    background-color: #007bff;
+    color: white;
+}
+
+.subscribe-button:hover:not(:disabled) {
+    background-color: #0069d9;
+}
+
+.unsubscribe-button {
+    background-color: #6c757d;
+    color: white;
+}
+
+.unsubscribe-button:hover:not(:disabled) {
+    background-color: #5a6268;
+}
+
+.heartbeat-button {
+    background-color: #17a2b8;
+    color: white;
+}
+
+.heartbeat-button:hover:not(:disabled) {
+    background-color: #138496;
+}
+
+.status-indicator {
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.status-indicator.connected {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-indicator.disconnected {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.data-display {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.market-data,
+.log-panel {
+    background-color: white;
+    border-radius: 6px;
+    padding: 20px;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+}
+
+h2 {
+    margin-top: 0;
+    color: #343a40;
+    font-size: 18px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.no-data {
+    text-align: center;
+    padding: 30px;
+    color: #6c757d;
+    font-style: italic;
+}
+
+.data-grid {
+    overflow-x: auto;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 12px;
+    border-bottom: 1px solid #e9ecef;
+    text-align: left;
+}
+
+th {
+    background-color: #f8f9fa;
+    color: #495057;
+    font-weight: 600;
+}
+
+tr:hover {
+    background-color: #f5f5f5;
+}
+
+.ask-price {
+    color: #dc3545;
+}
+
+.bid-price {
+    color: #28a745;
+}
+
+.log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.clear-logs {
+    background-color: #6c757d;
+    color: white;
+    padding: 5px 10px;
+    font-size: 12px;
+    border-radius: 4px;
+}
+
+.clear-logs:hover {
+    background-color: #5a6268;
+}
+
+.log-container {
+    height: 300px;
+    overflow-y: auto;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    margin-top: 10px;
+    font-family: monospace;
+    font-size: 13px;
+}
+
+.log-entry {
+    margin-bottom: 5px;
+    padding: 5px;
+    border-radius: 3px;
+}
+
+.log-time {
+    color: #6c757d;
+    margin-right: 5px;
+}
+
+.log-type {
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+.log-entry.错误 {
+    background-color: #f8d7da;
+}
+
+.log-entry.警告 {
+    background-color: #fff3cd;
+}
+
+.log-entry.成功 {
+    background-color: #d4edda;
+}
+
+.log-entry.信息 {
+    background-color: #e2e3e5;
+}
+
+.log-entry.心跳 {
+    background-color: #d1ecf1;
+}
+
+.log-entry.数据 {
+    background-color: #e2f3fa;
+}
+
+@media (max-width: 768px) {
+    .data-display {
+        grid-template-columns: 1fr;
+    }
+
+    .form-group {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .form-group label {
+        margin-bottom: 5px;
+    }
+}
