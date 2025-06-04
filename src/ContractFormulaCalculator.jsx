@@ -42,7 +42,51 @@ export default function ContractFormulaCalculator() {
 
   // 自动刷新定时器引用
   const refreshTimerRef = useRef(null);
+  const handleDonation = async () => {
+    const donationAddress = '0xe67b62825fee3322a68e9e7e10d0e9223fabc39c';
 
+    // 检查是否有 MetaMask
+    if (typeof window.ethereum === 'undefined') {
+      alert('请安装 MetaMask 钱包以便进行打赏');
+      return;
+    }
+
+    try {
+      // 获取当前账户
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      const account = accounts[0];
+
+      // 弹出输入框让用户输入打赏金额
+      const amountETH = prompt('请输入打赏金额 (ETH)', '0.01');
+      if (!amountETH || parseFloat(amountETH) <= 0) return;
+
+      // 将 ETH 转换为 Wei (1 ETH = 10^18 Wei)
+      const amountWei = `0x${(parseFloat(amountETH) * 1e18).toString(16)}`;
+
+      // 请求 MetaMask 发送交易
+      const transactionParameters = {
+        to: donationAddress,
+        from: account,
+        value: amountWei
+      };
+
+      addToLog(`--- 发起打赏交易 ---`);
+      addToLog(`打赏地址: ${donationAddress}`);
+      addToLog(`打赏金额: ${amountETH} ETH`);
+
+      const txHash = await window.ethereum.request({
+        method: 'eth_sendTransaction',
+        params: [transactionParameters],
+      });
+
+      addToLog(`交易发送成功! 交易哈希: ${txHash}`);
+      addToLog(`感谢您的支持! ❤️`);
+
+    } catch (error) {
+      console.error(error);
+      addToLog(`打赏失败: ${error.message || '未知错误'}`);
+    }
+  };
   // 当前日期和时间，用户名
   const currentDateTime = "2025-05-16 07:44:03";
   const currentUser = "z";
@@ -494,6 +538,18 @@ export default function ContractFormulaCalculator() {
 
   return (
       <div className="w-full min-w-full p-4 md:p-6">
+        {/* 打赏按钮 */}
+        <div className="flex justify-end mb-4">
+          <button
+              onClick={handleDonation}
+              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-4 py-2 rounded-full shadow-md flex items-center"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+            </svg>
+            打赏开发者
+          </button>
+        </div>
         {/* 顶部基础参数设置区 */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-8 gap-4 bg-gray-100 p-4 md:p-5 rounded-lg mb-6 w-full">
           <div className="col-span-1 lg:col-span-1">
