@@ -333,3 +333,33 @@ tr:hover {
         margin-bottom: 5px;
     }
 }
+.protocol-selector {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.protocol-selector label {
+    min-width: 100px;
+    font-weight: 600;
+    color: #495057;
+}
+
+.radio-group {
+    display: flex;
+    gap: 20px;
+}
+
+.radio-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.radio-label input {
+    margin-right: 5px;
+}
+
+.radio-label input:disabled {
+    cursor: not-allowed;
+}

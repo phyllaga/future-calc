@@ -11,6 +11,7 @@ function WebSocketClient() {
   const [subscribeSymbols, setSubscribeSymbols] = useState('');
   const [marketData, setMarketData] = useState({});
   const [connectionStatus, setConnectionStatus] = useState('未连接');
+  const [protocol, setProtocol] = useState('ws'); // 默认使用ws协议
 
   // WebSocket引用
   const wsRef = useRef(null);
@@ -20,6 +21,20 @@ function WebSocketClient() {
   const reconnectTimerRef = useRef(null);
   // 日志区域引用
   const logContainerRef = useRef(null);
+
+  // 当协议选择变化时更新服务器URL
+  useEffect(() => {
+    if (serverUrl) {
+      // 提取当前URL的主机部分
+      let url = serverUrl;
+      if (url.startsWith('ws://') || url.startsWith('wss://')) {
+        url = url.substring(url.indexOf('://') + 3);
+      }
+
+      // 应用新协议
+      setServerUrl(`${protocol}://${url}`);
+    }
+  }, [protocol]);
 
   // 连接WebSocket
   const connectWebSocket = () => {
@@ -31,6 +46,13 @@ function WebSocketClient() {
     if (!serverUrl) {
       addLog('错误', '服务器地址不能为空');
       return;
+    }
+
+    // 确保URL使用正确的协议
+    let wsUrl = serverUrl;
+    if (!wsUrl.startsWith('ws://') && !wsUrl.startsWith('wss://')) {
+      wsUrl = `${protocol}://${wsUrl}`;
+      setServerUrl(wsUrl);
     }
 
     // 清除之前的连接
@@ -45,11 +67,11 @@ function WebSocketClient() {
 
     try {
       // 构建完整的WebSocket URL
-      const wsUrl = `${serverUrl}${appId}/${appSecret}`.replace(/([^:]\/)\/+/g, "$1");
-      addLog('信息', `正在连接: ${wsUrl}`);
+      const fullUrl = `${wsUrl}${appId}/${appSecret}`.replace(/([^:]\/)\/+/g, "$1");
+      addLog('信息', `正在连接: ${fullUrl}`);
       setConnectionStatus('连接中...');
 
-      wsRef.current = new WebSocket(wsUrl);
+      wsRef.current = new WebSocket(fullUrl);
 
       // 连接建立
       wsRef.current.onopen = () => {
@@ -278,6 +300,19 @@ function WebSocketClient() {
     addLog('信息', '已清空行情数据');
   };
 
+  // 处理服务器URL变更，确保协议选项与URL保持一致
+  const handleServerUrlChange = (e) => {
+    const newUrl = e.target.value;
+    setServerUrl(newUrl);
+
+    // 自动更新协议选择
+    if (newUrl.startsWith('wss://')) {
+      setProtocol('wss');
+    } else if (newUrl.startsWith('ws://')) {
+      setProtocol('ws');
+    }
+  };
+
   // 在组件卸载时清理资源
   useEffect(() => {
     return () => {
@@ -298,13 +333,39 @@ function WebSocketClient() {
         <h1>WebSocket行情订阅工具</h1>
 
         <div className="connection-panel">
+          <div className="protocol-selector">
+            <label>协议:</label>
+            <div className="radio-group">
+              <label className="radio-label">
+                <input
+                    type="radio"
+                    value="ws"
+                    checked={protocol === 'ws'}
+                    onChange={() => setProtocol('ws')}
+                    disabled={isConnected}
+                />
+                ws (非加密)
+              </label>
+              <label className="radio-label">
+                <input
+                    type="radio"
+                    value="wss"
+                    checked={protocol === 'wss'}
+                    onChange={() => setProtocol('wss')}
+                    disabled={isConnected}
+                />
+                wss (加密)
+              </label>
+            </div>
+          </div>
+
           <div className="form-group">
             <label>服务器地址:</label>
             <input
                 type="text"
                 value={serverUrl}
-                onChange={(e) => setServerUrl(e.target.value)}
-                placeholder="WebSocket服务器地址"
+                onChange={handleServerUrlChange}
+                placeholder="例如: 8.210.67.97:30322/Push/"
                 disabled={isConnected}
             />
           </div>
@@ -468,12 +529,17 @@ function WebSocketClient() {
             <h2>使用说明</h2>
           </div>
           <div className="help-content">
+            <h3>连接设置</h3>
+            <p><strong>协议选择:</strong> 根据服务器要求选择 ws (非加密) 或 wss (加密) 协议</p>
+            <p><strong>服务器地址:</strong> 输入服务器主机地址和路径，例如 8.210.67.97:30322/Push/</p>
+
             <h3>订阅格式</h3>
             <p>股票代码格式: 证券市场|证券类型|数据类型|证券代码</p>
             <p>例如: INDEX|2|O|AUS200,INDEX|2|O|CN50</p>
 
             <h3>操作步骤</h3>
             <ol>
+              <li>选择连接协议(ws或wss)</li>
               <li>输入服务器地址、AppID和AppSecret</li>
               <li>点击"连接"按钮建立WebSocket连接</li>
               <li>输入要订阅的股票代码</li>
