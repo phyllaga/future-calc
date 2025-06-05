@@ -19,7 +19,8 @@ h1 {
 }
 
 .connection-panel,
-.subscription-panel {
+.subscription-panel,
+.help-section {
     background-color: white;
     border-radius: 6px;
     padding: 20px;
@@ -147,6 +148,7 @@ button:disabled {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 20px;
+    margin-bottom: 20px;
 }
 
 .market-data,
@@ -166,11 +168,40 @@ h2 {
     border-bottom: 1px solid #e9ecef;
 }
 
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.section-header h2 {
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+.clear-logs,
+.clear-data {
+    background-color: #6c757d;
+    color: white;
+    padding: 5px 10px;
+    font-size: 12px;
+    border-radius: 4px;
+}
+
+.clear-logs:hover:not(:disabled),
+.clear-data:hover:not(:disabled) {
+    background-color: #5a6268;
+}
+
 .no-data {
     text-align: center;
     padding: 30px;
     color: #6c757d;
     font-style: italic;
+    background-color: #f8f9fa;
+    border-radius: 4px;
 }
 
 .data-grid {
@@ -194,6 +225,9 @@ th {
     background-color: #f8f9fa;
     color: #495057;
     font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
 tr:hover {
@@ -208,31 +242,12 @@ tr:hover {
     color: #28a745;
 }
 
-.log-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.clear-logs {
-    background-color: #6c757d;
-    color: white;
-    padding: 5px 10px;
-    font-size: 12px;
-    border-radius: 4px;
-}
-
-.clear-logs:hover {
-    background-color: #5a6268;
-}
-
 .log-container {
     height: 300px;
     overflow-y: auto;
     padding: 10px;
     background-color: #f8f9fa;
     border-radius: 4px;
-    margin-top: 10px;
     font-family: monospace;
     font-size: 13px;
 }
@@ -275,6 +290,33 @@ tr:hover {
 
 .log-entry.数据 {
     background-color: #e2f3fa;
+}
+
+.help-content {
+    padding: 10px;
+}
+
+.help-content h3 {
+    color: #495057;
+    margin-top: 15px;
+    margin-bottom: 10px;
+    font-size: 16px;
+}
+
+.help-content p {
+    margin-bottom: 10px;
+    line-height: 1.5;
+}
+
+.help-content ol,
+.help-content ul {
+    margin-left: 20px;
+    margin-bottom: 15px;
+}
+
+.help-content li {
+    margin-bottom: 5px;
+    line-height: 1.5;
 }
 
 @media (max-width: 768px) {

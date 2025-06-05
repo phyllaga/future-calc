@@ -3,6 +3,7 @@ import './WebSocketClient.css';
 
 function WebSocketClient() {
   // 状态管理
+  const [serverUrl, setServerUrl] = useState('ws://8.210.67.97:30322/Push/');
   const [appId, setAppId] = useState('');
   const [appSecret, setAppSecret] = useState('');
   const [isConnected, setIsConnected] = useState(false);
@@ -27,6 +28,11 @@ function WebSocketClient() {
       return;
     }
 
+    if (!serverUrl) {
+      addLog('错误', '服务器地址不能为空');
+      return;
+    }
+
     // 清除之前的连接
     if (wsRef.current) {
       wsRef.current.close();
@@ -38,7 +44,8 @@ function WebSocketClient() {
     }
 
     try {
-      const wsUrl = `wss://quote.node01.b2b.hk.toapi.cn/Push/${appId}/${appSecret}`;
+      // 构建完整的WebSocket URL
+      const wsUrl = `${serverUrl}${appId}/${appSecret}`.replace(/([^:]\/)\/+/g, "$1");
       addLog('信息', `正在连接: ${wsUrl}`);
       setConnectionStatus('连接中...');
 
@@ -73,6 +80,7 @@ function WebSocketClient() {
           }
         } catch (err) {
           addLog('错误', `消息解析失败: ${err.message}`);
+          console.log('原始消息:', event.data);
         }
       };
 
@@ -102,11 +110,13 @@ function WebSocketClient() {
       wsRef.current.onerror = (error) => {
         setConnectionStatus('连接错误');
         addLog('错误', `WebSocket错误: ${error.message || '未知错误'}`);
+        console.error('WebSocket错误:', error);
       };
 
     } catch (error) {
       setConnectionStatus('连接失败');
       addLog('错误', `连接失败: ${error.message}`);
+      console.error('连接失败:', error);
     }
   };
 
@@ -155,6 +165,7 @@ function WebSocketClient() {
         }
       } catch (err) {
         addLog('错误', `行情数据解析失败: ${err.message}`);
+        console.error('行情数据解析失败:', err, data);
       }
     }
   };
@@ -261,6 +272,12 @@ function WebSocketClient() {
     setMessages([]);
   };
 
+  // 清空行情数据
+  const clearMarketData = () => {
+    setMarketData({});
+    addLog('信息', '已清空行情数据');
+  };
+
   // 在组件卸载时清理资源
   useEffect(() => {
     return () => {
@@ -281,6 +298,17 @@ function WebSocketClient() {
         <h1>WebSocket行情订阅工具</h1>
 
         <div className="connection-panel">
+          <div className="form-group">
+            <label>服务器地址:</label>
+            <input
+                type="text"
+                value={serverUrl}
+                onChange={(e) => setServerUrl(e.target.value)}
+                placeholder="WebSocket服务器地址"
+                disabled={isConnected}
+            />
+          </div>
+
           <div className="form-group">
             <label>App ID:</label>
             <input
@@ -308,7 +336,7 @@ function WebSocketClient() {
                 <button
                     className="connect-button"
                     onClick={connectWebSocket}
-                    disabled={!appId || !appSecret}
+                    disabled={!appId || !appSecret || !serverUrl}
                 >
                   连接
                 </button>
@@ -365,7 +393,17 @@ function WebSocketClient() {
 
         <div className="data-display">
           <div className="market-data">
-            <h2>行情数据</h2>
+            <div className="section-header">
+              <h2>行情数据</h2>
+              <button
+                  className="clear-data"
+                  onClick={clearMarketData}
+                  disabled={Object.keys(marketData).length === 0}
+              >
+                清空数据
+              </button>
+            </div>
+
             {Object.keys(marketData).length === 0 ? (
                 <div className="no-data">暂无数据，请先订阅行情</div>
             ) : (
@@ -399,19 +437,56 @@ function WebSocketClient() {
           </div>
 
           <div className="log-panel">
-            <div className="log-header">
+            <div className="section-header">
               <h2>连接日志</h2>
-              <button className="clear-logs" onClick={clearLogs}>清空日志</button>
+              <button
+                  className="clear-logs"
+                  onClick={clearLogs}
+                  disabled={messages.length === 0}
+              >
+                清空日志
+              </button>
             </div>
             <div className="log-container" ref={logContainerRef}>
-              {messages.map((msg, index) => (
-                  <div key={index} className={`log-entry ${msg.type.toLowerCase()}`}>
-                    <span className="log-time">[{msg.timestamp}]</span>
-                    <span className="log-type">[{msg.type}]</span>
-                    <span className="log-message">{msg.message}</span>
-                  </div>
-              ))}
+              {messages.length === 0 ? (
+                  <div className="no-data">暂无日志</div>
+              ) : (
+                  messages.map((msg, index) => (
+                      <div key={index} className={`log-entry ${msg.type.toLowerCase()}`}>
+                        <span className="log-time">[{msg.timestamp}]</span>
+                        <span className="log-type">[{msg.type}]</span>
+                        <span className="log-message">{msg.message}</span>
+                      </div>
+                  ))
+              )}
             </div>
+          </div>
+        </div>
+
+        <div className="help-section">
+          <div className="section-header">
+            <h2>使用说明</h2>
+          </div>
+          <div className="help-content">
+            <h3>订阅格式</h3>
+            <p>股票代码格式: 证券市场|证券类型|数据类型|证券代码</p>
+            <p>例如: INDEX|2|O|AUS200,INDEX|2|O|CN50</p>
+
+            <h3>操作步骤</h3>
+            <ol>
+              <li>输入服务器地址、AppID和AppSecret</li>
+              <li>点击"连接"按钮建立WebSocket连接</li>
+              <li>输入要订阅的股票代码</li>
+              <li>点击"订阅"按钮开始接收行情数据</li>
+              <li>实时行情将显示在上方表格中</li>
+            </ol>
+
+            <h3>注意事项</h3>
+            <ul>
+              <li>每30秒会自动发送心跳包保持连接</li>
+              <li>如连接断开，系统会自动尝试重连</li>
+              <li>每个AppID仅支持一个活跃连接，新连接会导致旧连接断开</li>
+            </ul>
           </div>
         </div>
       </div>
