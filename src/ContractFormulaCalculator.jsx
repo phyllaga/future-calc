@@ -3,7 +3,7 @@ import './WebSocketClient.css';
 
 function WebSocketClient() {
   // 状态管理
-  const [serverUrl, setServerUrl] = useState('ws://8.210.67.97:30322/Push/');
+  const [serverUrl, setServerUrl] = useState('8.210.67.97:30322/Push/');
   const [appId, setAppId] = useState('');
   const [appSecret, setAppSecret] = useState('');
   const [isConnected, setIsConnected] = useState(false);
@@ -11,7 +11,8 @@ function WebSocketClient() {
   const [subscribeSymbols, setSubscribeSymbols] = useState('');
   const [marketData, setMarketData] = useState({});
   const [connectionStatus, setConnectionStatus] = useState('未连接');
-  const [protocol, setProtocol] = useState('ws'); // 默认使用ws协议
+  const [protocol, setProtocol] = useState(''); // 空值，自动检测
+  const [securityWarning, setSecurityWarning] = useState(false);
 
   // WebSocket引用
   const wsRef = useRef(null);
@@ -22,19 +23,29 @@ function WebSocketClient() {
   // 日志区域引用
   const logContainerRef = useRef(null);
 
-  // 当协议选择变化时更新服务器URL
+  // 检测当前页面协议
   useEffect(() => {
-    if (serverUrl) {
-      // 提取当前URL的主机部分
-      let url = serverUrl;
-      if (url.startsWith('ws://') || url.startsWith('wss://')) {
-        url = url.substring(url.indexOf('://') + 3);
-      }
-
-      // 应用新协议
-      setServerUrl(`${protocol}://${url}`);
+    const isPageSecure = window.location.protocol === 'https:';
+    if (isPageSecure && protocol === 'ws') {
+      setSecurityWarning(true);
+    } else {
+      setSecurityWarning(false);
     }
   }, [protocol]);
+
+  // 自动检测并设置最佳协议
+  useEffect(() => {
+    const isPageSecure = window.location.protocol === 'https:';
+    if (isPageSecure && !protocol) {
+      // HTTPS页面默认使用wss协议
+      setProtocol('wss');
+      addLog('信息', '检测到HTTPS页面，已自动选择WSS协议');
+    } else if (!isPageSecure && !protocol) {
+      // HTTP页面可以使用ws协议
+      setProtocol('ws');
+      addLog('信息', '检测到HTTP页面，已自动选择WS协议');
+    }
+  }, []);
 
   // 连接WebSocket
   const connectWebSocket = () => {
@@ -48,11 +59,11 @@ function WebSocketClient() {
       return;
     }
 
-    // 确保URL使用正确的协议
-    let wsUrl = serverUrl;
-    if (!wsUrl.startsWith('ws://') && !wsUrl.startsWith('wss://')) {
-      wsUrl = `${protocol}://${wsUrl}`;
-      setServerUrl(wsUrl);
+    // 检查协议安全性
+    const isPageSecure = window.location.protocol === 'https:';
+    if (isPageSecure && protocol === 'ws') {
+      addLog('错误', '在HTTPS页面上不能使用非加密的WebSocket连接(ws://)。请使用WSS协议或切换到HTTP页面。');
+      return;
     }
 
     // 清除之前的连接
@@ -66,8 +77,14 @@ function WebSocketClient() {
     }
 
     try {
+      // 确保服务器URL不包含协议前缀
+      let cleanServerUrl = serverUrl;
+      if (cleanServerUrl.startsWith('ws://') || cleanServerUrl.startsWith('wss://')) {
+        cleanServerUrl = cleanServerUrl.substring(cleanServerUrl.indexOf('://') + 3);
+      }
+
       // 构建完整的WebSocket URL
-      const fullUrl = `${wsUrl}${appId}/${appSecret}`.replace(/([^:]\/)\/+/g, "$1");
+      const fullUrl = `${protocol}://${cleanServerUrl}${appId}/${appSecret}`.replace(/([^:]\/)\/+/g, "$1");
       addLog('信息', `正在连接: ${fullUrl}`);
       setConnectionStatus('连接中...');
 
@@ -192,6 +209,7 @@ function WebSocketClient() {
     }
   };
 
+  // 其余函数保持不变...
   // 发送订阅请求
   const sendSubscribe = () => {
     if (!isConnected) {
@@ -300,16 +318,16 @@ function WebSocketClient() {
     addLog('信息', '已清空行情数据');
   };
 
-  // 处理服务器URL变更，确保协议选项与URL保持一致
-  const handleServerUrlChange = (e) => {
-    const newUrl = e.target.value;
-    setServerUrl(newUrl);
+  // 处理协议改变
+  const handleProtocolChange = (newProtocol) => {
+    setProtocol(newProtocol);
 
-    // 自动更新协议选择
-    if (newUrl.startsWith('wss://')) {
-      setProtocol('wss');
-    } else if (newUrl.startsWith('ws://')) {
-      setProtocol('ws');
+    const isPageSecure = window.location.protocol === 'https:';
+    if (isPageSecure && newProtocol === 'ws') {
+      setSecurityWarning(true);
+      addLog('警告', '在HTTPS页面上使用WS协议可能会被浏览器阻止');
+    } else {
+      setSecurityWarning(false);
     }
   };
 
@@ -341,7 +359,7 @@ function WebSocketClient() {
                     type="radio"
                     value="ws"
                     checked={protocol === 'ws'}
-                    onChange={() => setProtocol('ws')}
+                    onChange={() => handleProtocolChange('ws')}
                     disabled={isConnected}
                 />
                 ws (非加密)
@@ -351,7 +369,7 @@ function WebSocketClient() {
                     type="radio"
                     value="wss"
                     checked={protocol === 'wss'}
-                    onChange={() => setProtocol('wss')}
+                    onChange={() => handleProtocolChange('wss')}
                     disabled={isConnected}
                 />
                 wss (加密)
@@ -359,12 +377,19 @@ function WebSocketClient() {
             </div>
           </div>
 
+          {securityWarning && (
+              <div className="security-warning">
+                <span className="warning-icon">⚠️</span>
+                警告: 在HTTPS页面上不能使用非加密的WebSocket连接(ws://)。请使用WSS协议或切换到HTTP页面。
+              </div>
+          )}
+
           <div className="form-group">
             <label>服务器地址:</label>
             <input
                 type="text"
                 value={serverUrl}
-                onChange={handleServerUrlChange}
+                onChange={(e) => setServerUrl(e.target.value)}
                 placeholder="例如: 8.210.67.97:30322/Push/"
                 disabled={isConnected}
             />
@@ -397,7 +422,7 @@ function WebSocketClient() {
                 <button
                     className="connect-button"
                     onClick={connectWebSocket}
-                    disabled={!appId || !appSecret || !serverUrl}
+                    disabled={!appId || !appSecret || !serverUrl || (securityWarning && protocol === 'ws')}
                 >
                   连接
                 </button>
@@ -415,6 +440,7 @@ function WebSocketClient() {
           </div>
         </div>
 
+        {/* 其余代码保持不变... */}
         <div className="subscription-panel">
           <div className="form-group">
             <label>订阅代码:</label>
@@ -531,6 +557,7 @@ function WebSocketClient() {
           <div className="help-content">
             <h3>连接设置</h3>
             <p><strong>协议选择:</strong> 根据服务器要求选择 ws (非加密) 或 wss (加密) 协议</p>
+            <p><strong>安全限制:</strong> 在HTTPS页面上只能使用WSS协议，使用WS协议会被浏览器阻止</p>
             <p><strong>服务器地址:</strong> 输入服务器主机地址和路径，例如 8.210.67.97:30322/Push/</p>
 
             <h3>订阅格式</h3>
@@ -539,7 +566,7 @@ function WebSocketClient() {
 
             <h3>操作步骤</h3>
             <ol>
-              <li>选择连接协议(ws或wss)</li>
+              <li>选择连接协议(ws或wss)，<strong>注意：HTTPS页面必须使用wss</strong></li>
               <li>输入服务器地址、AppID和AppSecret</li>
               <li>点击"连接"按钮建立WebSocket连接</li>
               <li>输入要订阅的股票代码</li>

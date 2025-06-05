@@ -363,3 +363,19 @@ tr:hover {
 .radio-label input:disabled {
     cursor: not-allowed;
 }
+
+.security-warning {
+    background-color: #fff3cd;
+    border-left: 4px solid #ffc107;
+    color: #856404;
+    padding: 10px 15px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+}
+
+.warning-icon {
+    font-size: 18px;
+    margin-right: 10px;
+}
