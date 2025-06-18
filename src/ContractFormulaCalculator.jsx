@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import './FileUploader.css';
 
-function FileUploader() {
+function ContractFormulaCalculator() {
   // 状态管理
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -11,18 +11,23 @@ function FileUploader() {
 
   // 文件输入引用
   const fileInputRef = useRef(null);
+  // 日志容器引用
+  const logContainerRef = useRef(null);
 
   // S3配置
   const s3Config = {
-    uploadUrl: 'https://hashex-1.s3.ap-southeast-1.amazonaws.com/line/line-url',
-    bucketUrl: 'https://hashex-1.s3.ap-southeast-1.amazonaws.com'
+    bucket: 'hashex-1',
+    region: 'ap-southeast-1',
+    directory: 'line/line-url',
+    accessKey: 'AKIAYVAGXOZYMAXKQD4F',
+    secretKey: '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'
   };
 
   // 处理文件选择
   const handleFileChange = (e) => {
     if (e.target.files.length > 0) {
       setFiles(Array.from(e.target.files));
-      setMessage('');
+      addLog('信息', `已选择 ${e.target.files.length} 个文件`);
     }
   };
 
@@ -32,55 +37,84 @@ function FileUploader() {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+    addLog('信息', '已清除所选文件');
   };
 
-  // 上传文件到服务器，服务器会返回预签名URL
-  const uploadFile = async () => {
+  // 使用预签名URL上传文件到S3
+  const uploadFiles = async () => {
     if (files.length === 0) {
-      showMessage('请先选择文件', 'error');
+      addLog('警告', '请先选择文件');
       return;
     }
 
     setUploading(true);
-    showMessage('正在上传...', 'info');
+    addLog('信息', '开始上传文件...');
 
     const uploadedItems = [];
 
     try {
       for (const file of files) {
-        // 创建唯一的文件名
-        const fileName = `line/${Date.now()}-${file.name}`;
+        addLog('信息', `正在上传: ${file.name}`);
 
-        // 这里应该有一个后端API来获取预签名URL
-        // 由于没有实际的后端，我们这里直接模拟上传成功
+        // 为文件创建唯一的key
+        const fileName = `${s3Config.directory}/${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
 
-        // 在实际应用中，应该是:
-        // const response = await fetch('/api/get-presigned-url', {
-        //   method: 'POST',
-        //   body: JSON.stringify({ fileName, fileType: file.type })
-        // });
-        // const { url } = await response.json();
-        // await fetch(url, {
-        //   method: 'PUT',
-        //   body: file
-        // });
+        // 生成当前日期字符串 (AWS签名需要)
+        const date = new Date().toISOString().replace(/[:-]|\.\d{3}/g, '');
+        const dateStamp = date.substr(0, 8);
+        const amzDate = date.substr(0, 8) + 'T' + date.substr(8, 6) + 'Z';
 
-        // 模拟上传延迟
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // 创建请求并计算签名
+        const endpoint = `https://${s3Config.bucket}.s3.${s3Config.region}.amazonaws.com/${fileName}`;
 
-        // 构建文件URL
-        const fileUrl = `${s3Config.bucketUrl}/${fileName}`;
-
-        uploadedItems.push({
-          name: file.name,
-          size: formatFileSize(file.size),
-          type: file.type,
-          url: fileUrl,
-          uploadTime: new Date().toLocaleString()
+        // 设置HTTP头
+        const contentType = file.type || 'application/octet-stream';
+        const headers = new Headers({
+          'Content-Type': contentType,
+          'x-amz-date': amzDate,
+          'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
+          'Host': `${s3Config.bucket}.s3.${s3Config.region}.amazonaws.com`
         });
+
+        // 创建PUT请求
+        const requestOptions = {
+          method: 'PUT',
+          headers: headers,
+          body: file
+        };
+
+        // 计算AWS签名
+        // 注意：这种方式在浏览器端实现AWS签名很复杂且不安全
+        // 实际环境中应该通过后端API或使用预签名URL
+
+        try {
+          // 为简化演示，我们直接尝试请求，实际应用需要正确的AWS签名
+          const response = await fetch(endpoint, requestOptions);
+
+          if (response.ok) {
+            // 上传成功
+            const fileUrl = endpoint;
+            uploadedItems.push({
+              name: file.name,
+              size: formatFileSize(file.size),
+              type: file.type,
+              url: fileUrl,
+              uploadTime: new Date().toLocaleString()
+            });
+
+            addLog('成功', `文件上传成功: ${file.name}`);
+          } else {
+            // 上传失败
+            const errorText = await response.text();
+            throw new Error(`上传失败 (${response.status}): ${errorText}`);
+          }
+        } catch (error) {
+          addLog('错误', `文件 ${file.name} 上传失败: ${error.message}`);
+          throw error;
+        }
       }
 
-      setUploadedFiles(prev => [...prev, ...uploadedItems]);
+      setUploadedFiles(prev => [...uploadedItems, ...prev]);
       clearSelectedFiles();
       showMessage(`成功上传 ${uploadedItems.length} 个文件`, 'success');
     } catch (error) {
@@ -104,6 +138,27 @@ function FileUploader() {
     }
   };
 
+  // 添加日志
+  const addLog = (type, message) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const logEntry = { type, message, timestamp };
+
+    setUploadedFiles(prev => {
+      // 如果是文件操作日志，添加到列表顶部
+      if (type === '信息' || type === '警告' || type === '错误' || type === '成功') {
+        return [logEntry, ...prev];
+      }
+      return prev;
+    });
+
+    // 滚动到日志底部
+    setTimeout(() => {
+      if (logContainerRef.current) {
+        logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+      }
+    }, 100);
+  };
+
   // 格式化文件大小
   const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 Bytes';
@@ -117,26 +172,70 @@ function FileUploader() {
   const copyToClipboard = (url) => {
     navigator.clipboard.writeText(url)
         .then(() => {
+          addLog('成功', 'URL已复制到剪贴板');
           showMessage('URL已复制到剪贴板', 'success');
         })
         .catch(err => {
-          showMessage('复制失败: ' + err, 'error');
+          addLog('错误', `复制失败: ${err.message}`);
+          showMessage('复制失败', 'error');
         });
   };
 
-  // 删除已上传的文件
-  const removeUploadedFile = (index) => {
+  // 从列表中移除文件
+  const removeFile = (index) => {
     const newFiles = [...uploadedFiles];
     newFiles.splice(index, 1);
     setUploadedFiles(newFiles);
+    addLog('信息', '已从列表中移除文件');
   };
 
+  // 清空日志和上传记录
+  const clearLogs = () => {
+    setUploadedFiles([]);
+    addLog('信息', '已清空所有记录');
+  };
+
+  // 使用预签名URL上传文件
+  const getPresignedUrlAndUpload = async (file) => {
+    // 这里应该调用后端API获取预签名URL
+    // 以下是模拟创建预签名URL的过程
+
+    // 在实际应用中，应该从后端获取这个URL
+    const fakePresignedUrl = `https://${s3Config.bucket}.s3.${s3Config.region}.amazonaws.com/${s3Config.directory}/${Date.now()}-${file.name}?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=fakeCredential&X-Amz-Date=fakeDate&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=fakeSignature`;
+
+    try {
+      // 在实际应用中，应该使用这个预签名URL上传文件
+      // const uploadResponse = await fetch(presignedUrl, {
+      //   method: 'PUT',
+      //   body: file,
+      //   headers: {
+      //     'Content-Type': file.type
+      //   }
+      // });
+
+      // 模拟上传成功
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // 从预签名URL中提取实际的文件URL (移除查询参数)
+      const fileUrl = fakePresignedUrl.split('?')[0];
+
+      return {
+        success: true,
+        url: fileUrl
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  };
 
   return (
-      <div className="file-uploader-container">
-        <h1>文件上传至AWS S3</h1>
+      <div className="ws-client-container file-uploader-container">
+        <h1>文件上传工具</h1>
 
-        <div className="upload-panel">
+        <div className="connection-panel upload-panel">
           <div className="file-input-container">
             <input
                 type="file"
@@ -161,10 +260,10 @@ function FileUploader() {
 
           <button
               className="upload-button"
-              onClick={uploadFile}
+              onClick={uploadFiles}
               disabled={uploading || files.length === 0}
           >
-            {uploading ? '上传中...' : '上传到S3'}
+            {uploading ? '上传中...' : '上传文件'}
           </button>
         </div>
 
@@ -175,92 +274,125 @@ function FileUploader() {
         )}
 
         {files.length > 0 && (
-            <div className="selected-files-panel">
-              <h2>待上传文件</h2>
-              <div className="files-list">
-                <table>
-                  <thead>
-                  <tr>
-                    <th>文件名</th>
-                    <th>类型</th>
-                    <th>大小</th>
-                  </tr>
-                  </thead>
-                  <tbody>
-                  {files.map((file, index) => (
-                      <tr key={index}>
-                        <td>{file.name}</td>
-                        <td>{file.type || '未知类型'}</td>
-                        <td>{formatFileSize(file.size)}</td>
-                      </tr>
-                  ))}
-                  </tbody>
-                </table>
+            <div className="data-display selected-files-panel">
+              <div className="market-data">
+                <div className="section-header">
+                  <h2>待上传文件</h2>
+                </div>
+                <div className="data-grid files-list">
+                  <table>
+                    <thead>
+                    <tr>
+                      <th>文件名</th>
+                      <th>类型</th>
+                      <th>大小</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {files.map((file, index) => (
+                        <tr key={index}>
+                          <td>{file.name}</td>
+                          <td>{file.type || '未知类型'}</td>
+                          <td>{formatFileSize(file.size)}</td>
+                        </tr>
+                    ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
         )}
 
-        {uploadedFiles.length > 0 && (
-            <div className="uploaded-files-panel">
-              <h2>已上传文件</h2>
-              <div className="files-list">
-                <table>
-                  <thead>
-                  <tr>
-                    <th>文件名</th>
-                    <th>类型</th>
-                    <th>大小</th>
-                    <th>上传时间</th>
-                    <th>URL</th>
-                    <th>操作</th>
-                  </tr>
-                  </thead>
-                  <tbody>
-                  {uploadedFiles.map((file, index) => (
-                      <tr key={index}>
-                        <td>{file.name}</td>
-                        <td>{file.type || '未知类型'}</td>
-                        <td>{file.size}</td>
-                        <td>{file.uploadTime}</td>
-                        <td>
-                          <div className="url-cell">
-                            <a href={file.url} target="_blank" rel="noopener noreferrer">
-                              {file.url.substring(0, 50)}...
-                            </a>
-                          </div>
-                        </td>
-                        <td>
-                          <button
-                              className="copy-btn"
-                              onClick={() => copyToClipboard(file.url)}
-                              title="复制URL"
-                          >
-                            复制
-                          </button>
-                          <button
-                              className="delete-btn"
-                              onClick={() => removeUploadedFile(index)}
-                              title="从列表中移除"
-                          >
-                            删除
-                          </button>
-                        </td>
-                      </tr>
-                  ))}
-                  </tbody>
-                </table>
-              </div>
+        <div className="data-display uploaded-files-panel">
+          <div className="market-data">
+            <div className="section-header">
+              <h2>已上传文件与日志</h2>
+              <button
+                  className="clear-data"
+                  onClick={clearLogs}
+                  disabled={uploadedFiles.length === 0}
+              >
+                清空记录
+              </button>
             </div>
-        )}
+
+            {uploadedFiles.length === 0 ? (
+                <div className="no-data">暂无上传记录</div>
+            ) : (
+                <div className="data-grid files-list" ref={logContainerRef}>
+                  <table>
+                    <thead>
+                    <tr>
+                      <th>类型</th>
+                      <th>时间</th>
+                      <th>详情</th>
+                      <th>操作</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {uploadedFiles.map((item, index) => {
+                      if (item.url) {
+                        // 这是一个文件记录
+                        return (
+                            <tr key={index}>
+                              <td>文件</td>
+                              <td>{item.uploadTime}</td>
+                              <td>
+                                <div className="file-info">
+                                  <strong>{item.name}</strong>
+                                  <div className="url-cell">
+                                    <a href={item.url} target="_blank" rel="noopener noreferrer">
+                                      {item.url}
+                                    </a>
+                                  </div>
+                                </div>
+                              </td>
+                              <td>
+                                <button
+                                    className="copy-btn"
+                                    onClick={() => copyToClipboard(item.url)}
+                                    title="复制URL"
+                                >
+                                  复制
+                                </button>
+                                <button
+                                    className="delete-btn"
+                                    onClick={() => removeFile(index)}
+                                    title="从列表中移除"
+                                >
+                                  删除
+                                </button>
+                              </td>
+                            </tr>
+                        );
+                      } else {
+                        // 这是一个日志记录
+                        return (
+                            <tr key={index} className={`log-entry ${item.type.toLowerCase()}`}>
+                              <td>{item.type}</td>
+                              <td>{item.timestamp}</td>
+                              <td colSpan="2">{item.message}</td>
+                            </tr>
+                        );
+                      }
+                    })}
+                    </tbody>
+                  </table>
+                </div>
+            )}
+          </div>
+        </div>
 
         <div className="help-section">
-          <h2>使用说明</h2>
+          <div className="section-header">
+            <h2>使用说明</h2>
+          </div>
           <div className="help-content">
             <h3>上传步骤</h3>
             <ol>
               <li>点击"选择文件"按钮选择要上传的文件</li>
               <li>可以一次选择多个文件</li>
-              <li>确认文件无误后，点击"上传到S3"按钮</li>
+              <li>确认文件无误后，点击"上传文件"按钮</li>
               <li>等待上传完成，文件链接将显示在下方列表中</li>
             </ol>
 
@@ -273,10 +405,10 @@ function FileUploader() {
             </ul>
 
             <h3>注意事项</h3>
-            <p>⚠️ <strong>重要提示：</strong> 此为演示版本，目前只模拟了上传功能。实际使用时需要配置后端服务来提供S3预签名URL。</p>
+            <p>⚠️ <strong>重要提示：</strong> 在浏览器直接上传到S3存在限制。我们建议开发后端API来处理上传操作。</p>
             <ul>
-              <li>上传的文件将被存储在AWS S3服务中</li>
-              <li>所有上传的文件都是公开可访问的</li>
+              <li>由于CORS和安全限制，浏览器直接上传到S3可能会失败</li>
+              <li>AWS访问密钥不应直接在前端使用</li>
               <li>请勿上传敏感或私密信息</li>
             </ul>
           </div>
@@ -285,4 +417,4 @@ function FileUploader() {
   );
 }
 
-export default FileUploader;
+export default ContractFormulaCalculator;
