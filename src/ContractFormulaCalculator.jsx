@@ -49,22 +49,36 @@ function ContractFormulaCalculator() {
       for (const file of files) {
         addLog('信息', `正在上传: ${file.name}`);
 
-        // 模拟上传延迟
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // 创建FormData对象
+        const formData = new FormData();
+        formData.append('file', file);
 
-        // 模拟生成S3 URL
-        const fileName = `line/line-url/${Date.now()}-${encodeURIComponent(file.name)}`;
-        const fileUrl = `https://hashex-1.s3.ap-southeast-1.amazonaws.com/${fileName}`;
-
-        uploadedItems.push({
-          name: file.name,
-          size: formatFileSize(file.size),
-          type: file.type || '未知类型',
-          url: fileUrl,
-          uploadTime: new Date().toLocaleString()
+        // 使用相对路径访问API，Vercel会自动处理
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
         });
 
-        addLog('成功', `文件上传成功: ${file.name}`);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || '上传失败');
+        }
+
+        const result = await response.json();
+
+        if (result.success) {
+          uploadedItems.push({
+            name: result.file.name,
+            size: formatFileSize(result.file.size),
+            type: result.file.type,
+            url: result.file.url,
+            uploadTime: new Date().toLocaleString()
+          });
+
+          addLog('成功', `文件上传成功: ${file.name}`);
+        } else {
+          throw new Error(result.error || '上传失败');
+        }
       }
 
       setUploadedFiles(prev => [...uploadedItems, ...prev]);

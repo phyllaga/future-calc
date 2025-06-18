@@ -1,8 +1,7 @@
 {
-  "name": "profit-calculator",
+  "name": "file-uploader",
   "version": "1.0.0",
-  "description": "A React-based contract profit and loss calculator",
-  "main": "index.js",
+  "private": true,
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
@@ -10,18 +9,16 @@
     "eject": "react-scripts eject"
   },
   "dependencies": {
+    "aws-sdk": "^2.1499.0",
+    "formidable-serverless": "^1.1.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
-    "tailwindcss": "^3.3.3"
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "autoprefixer": "^10.4.14",
-    "postcss": "^8.4.27"
+    "@vercel/node": "^3.0.11"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "browserslist": {
     "production": [
       ">0.2%",
