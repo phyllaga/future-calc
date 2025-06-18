@@ -1,5 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
-import AWS from 'aws-sdk';
+import React, { useState, useRef } from 'react';
 import './FileUploader.css';
 
 function FileUploader() {
@@ -13,24 +12,11 @@ function FileUploader() {
   // 文件输入引用
   const fileInputRef = useRef(null);
 
-  // AWS S3配置
+  // S3配置
   const s3Config = {
-    bucketUrl: 'https://hashex-1.s3.ap-southeast-1.amazonaws.com/line/line-url',
-    accessKey: 'AKIAYVAGXOZYMAXKQD4F',
-    secretKey: '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',
-    region: 'ap-southeast-1',
-    bucket: 'hashex-1',
-    directory: 'line'
+    uploadUrl: 'https://hashex-1.s3.ap-southeast-1.amazonaws.com/line/line-url',
+    bucketUrl: 'https://hashex-1.s3.ap-southeast-1.amazonaws.com'
   };
-
-  // 配置AWS
-  useEffect(() => {
-    AWS.config.update({
-      accessKeyId: s3Config.accessKey,
-      secretAccessKey: s3Config.secretKey,
-      region: s3Config.region
-    });
-  }, []);
 
   // 处理文件选择
   const handleFileChange = (e) => {
@@ -48,8 +34,8 @@ function FileUploader() {
     }
   };
 
-  // 上传文件到S3
-  const uploadToS3 = async () => {
+  // 上传文件到服务器，服务器会返回预签名URL
+  const uploadFile = async () => {
     if (files.length === 0) {
       showMessage('请先选择文件', 'error');
       return;
@@ -58,27 +44,38 @@ function FileUploader() {
     setUploading(true);
     showMessage('正在上传...', 'info');
 
-    const s3 = new AWS.S3();
     const uploadedItems = [];
 
     try {
       for (const file of files) {
-        const fileName = `${s3Config.directory}/${Date.now()}-${file.name}`;
-        const params = {
-          Bucket: s3Config.bucket,
-          Key: fileName,
-          Body: file,
-          ContentType: file.type,
-          ACL: 'public-read'
-        };
+        // 创建唯一的文件名
+        const fileName = `line/${Date.now()}-${file.name}`;
 
-        const result = await s3.upload(params).promise();
+        // 这里应该有一个后端API来获取预签名URL
+        // 由于没有实际的后端，我们这里直接模拟上传成功
+
+        // 在实际应用中，应该是:
+        // const response = await fetch('/api/get-presigned-url', {
+        //   method: 'POST',
+        //   body: JSON.stringify({ fileName, fileType: file.type })
+        // });
+        // const { url } = await response.json();
+        // await fetch(url, {
+        //   method: 'PUT',
+        //   body: file
+        // });
+
+        // 模拟上传延迟
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // 构建文件URL
+        const fileUrl = `${s3Config.bucketUrl}/${fileName}`;
 
         uploadedItems.push({
           name: file.name,
           size: formatFileSize(file.size),
           type: file.type,
-          url: result.Location,
+          url: fileUrl,
           uploadTime: new Date().toLocaleString()
         });
       }
@@ -163,7 +160,7 @@ function FileUploader() {
 
           <button
               className="upload-button"
-              onClick={uploadToS3}
+              onClick={uploadFile}
               disabled={uploading || files.length === 0}
           >
             {uploading ? '上传中...' : '上传到S3'}
@@ -275,6 +272,7 @@ function FileUploader() {
             </ul>
 
             <h3>注意事项</h3>
+            <p>⚠️ <strong>重要提示：</strong> 此为演示版本，目前只模拟了上传功能。实际使用时需要配置后端服务来提供S3预签名URL。</p>
             <ul>
               <li>上传的文件将被存储在AWS S3服务中</li>
               <li>所有上传的文件都是公开可访问的</li>
