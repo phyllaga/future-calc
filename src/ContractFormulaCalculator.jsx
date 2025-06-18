@@ -6,6 +6,7 @@ function ContractFormulaCalculator() {
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [logs, setLogs] = useState([]);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
 
@@ -13,15 +14,6 @@ function ContractFormulaCalculator() {
   const fileInputRef = useRef(null);
   // 日志容器引用
   const logContainerRef = useRef(null);
-
-  // S3配置
-  const s3Config = {
-    bucket: 'hashex-1',
-    region: 'ap-southeast-1',
-    directory: 'line/line-url',
-    accessKey: 'AKIAYVAGXOZYMAXKQD4F',
-    secretKey: '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'
-  };
 
   // 处理文件选择
   const handleFileChange = (e) => {
@@ -40,7 +32,7 @@ function ContractFormulaCalculator() {
     addLog('信息', '已清除所选文件');
   };
 
-  // 使用预签名URL上传文件到S3
+  // 模拟上传文件到S3
   const uploadFiles = async () => {
     if (files.length === 0) {
       addLog('警告', '请先选择文件');
@@ -49,6 +41,7 @@ function ContractFormulaCalculator() {
 
     setUploading(true);
     addLog('信息', '开始上传文件...');
+    showMessage('文件上传中，请稍候...', 'info');
 
     const uploadedItems = [];
 
@@ -56,62 +49,22 @@ function ContractFormulaCalculator() {
       for (const file of files) {
         addLog('信息', `正在上传: ${file.name}`);
 
-        // 为文件创建唯一的key
-        const fileName = `${s3Config.directory}/${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
+        // 模拟上传延迟
+        await new Promise(resolve => setTimeout(resolve, 1500));
 
-        // 生成当前日期字符串 (AWS签名需要)
-        const date = new Date().toISOString().replace(/[:-]|\.\d{3}/g, '');
-        const dateStamp = date.substr(0, 8);
-        const amzDate = date.substr(0, 8) + 'T' + date.substr(8, 6) + 'Z';
+        // 模拟生成S3 URL
+        const fileName = `line/line-url/${Date.now()}-${encodeURIComponent(file.name)}`;
+        const fileUrl = `https://hashex-1.s3.ap-southeast-1.amazonaws.com/${fileName}`;
 
-        // 创建请求并计算签名
-        const endpoint = `https://${s3Config.bucket}.s3.${s3Config.region}.amazonaws.com/${fileName}`;
-
-        // 设置HTTP头
-        const contentType = file.type || 'application/octet-stream';
-        const headers = new Headers({
-          'Content-Type': contentType,
-          'x-amz-date': amzDate,
-          'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
-          'Host': `${s3Config.bucket}.s3.${s3Config.region}.amazonaws.com`
+        uploadedItems.push({
+          name: file.name,
+          size: formatFileSize(file.size),
+          type: file.type || '未知类型',
+          url: fileUrl,
+          uploadTime: new Date().toLocaleString()
         });
 
-        // 创建PUT请求
-        const requestOptions = {
-          method: 'PUT',
-          headers: headers,
-          body: file
-        };
-
-        // 计算AWS签名
-        // 注意：这种方式在浏览器端实现AWS签名很复杂且不安全
-        // 实际环境中应该通过后端API或使用预签名URL
-
-        try {
-          // 为简化演示，我们直接尝试请求，实际应用需要正确的AWS签名
-          const response = await fetch(endpoint, requestOptions);
-
-          if (response.ok) {
-            // 上传成功
-            const fileUrl = endpoint;
-            uploadedItems.push({
-              name: file.name,
-              size: formatFileSize(file.size),
-              type: file.type,
-              url: fileUrl,
-              uploadTime: new Date().toLocaleString()
-            });
-
-            addLog('成功', `文件上传成功: ${file.name}`);
-          } else {
-            // 上传失败
-            const errorText = await response.text();
-            throw new Error(`上传失败 (${response.status}): ${errorText}`);
-          }
-        } catch (error) {
-          addLog('错误', `文件 ${file.name} 上传失败: ${error.message}`);
-          throw error;
-        }
+        addLog('成功', `文件上传成功: ${file.name}`);
       }
 
       setUploadedFiles(prev => [...uploadedItems, ...prev]);
@@ -119,6 +72,7 @@ function ContractFormulaCalculator() {
       showMessage(`成功上传 ${uploadedItems.length} 个文件`, 'success');
     } catch (error) {
       console.error('上传失败:', error);
+      addLog('错误', `上传失败: ${error.message}`);
       showMessage(`上传失败: ${error.message}`, 'error');
     } finally {
       setUploading(false);
@@ -143,13 +97,7 @@ function ContractFormulaCalculator() {
     const timestamp = new Date().toLocaleTimeString();
     const logEntry = { type, message, timestamp };
 
-    setUploadedFiles(prev => {
-      // 如果是文件操作日志，添加到列表顶部
-      if (type === '信息' || type === '警告' || type === '错误' || type === '成功') {
-        return [logEntry, ...prev];
-      }
-      return prev;
-    });
+    setLogs(prev => [logEntry, ...prev]);
 
     // 滚动到日志底部
     setTimeout(() => {
@@ -189,51 +137,25 @@ function ContractFormulaCalculator() {
     addLog('信息', '已从列表中移除文件');
   };
 
-  // 清空日志和上传记录
+  // 清空日志
   const clearLogs = () => {
-    setUploadedFiles([]);
-    addLog('信息', '已清空所有记录');
+    setLogs([]);
+    addLog('信息', '已清空日志');
   };
 
-  // 使用预签名URL上传文件
-  const getPresignedUrlAndUpload = async (file) => {
-    // 这里应该调用后端API获取预签名URL
-    // 以下是模拟创建预签名URL的过程
-
-    // 在实际应用中，应该从后端获取这个URL
-    const fakePresignedUrl = `https://${s3Config.bucket}.s3.${s3Config.region}.amazonaws.com/${s3Config.directory}/${Date.now()}-${file.name}?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=fakeCredential&X-Amz-Date=fakeDate&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=fakeSignature`;
-
-    try {
-      // 在实际应用中，应该使用这个预签名URL上传文件
-      // const uploadResponse = await fetch(presignedUrl, {
-      //   method: 'PUT',
-      //   body: file,
-      //   headers: {
-      //     'Content-Type': file.type
-      //   }
-      // });
-
-      // 模拟上传成功
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // 从预签名URL中提取实际的文件URL (移除查询参数)
-      const fileUrl = fakePresignedUrl.split('?')[0];
-
-      return {
-        success: true,
-        url: fileUrl
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error.message
-      };
-    }
+  // 清空上传记录
+  const clearUploadedFiles = () => {
+    setUploadedFiles([]);
+    addLog('信息', '已清空上传记录');
   };
 
   return (
       <div className="ws-client-container file-uploader-container">
         <h1>文件上传工具</h1>
+
+        <div className="message info" style={{marginBottom: '20px'}}>
+          <strong>演示版本提示：</strong> 此版本仅展示界面和交互效果，并不会真正上传文件到S3服务器。
+        </div>
 
         <div className="connection-panel upload-panel">
           <div className="file-input-container">
@@ -306,10 +228,10 @@ function ContractFormulaCalculator() {
         <div className="data-display uploaded-files-panel">
           <div className="market-data">
             <div className="section-header">
-              <h2>已上传文件与日志</h2>
+              <h2>已上传文件</h2>
               <button
                   className="clear-data"
-                  onClick={clearLogs}
+                  onClick={clearUploadedFiles}
                   disabled={uploadedFiles.length === 0}
               >
                 清空记录
@@ -319,66 +241,79 @@ function ContractFormulaCalculator() {
             {uploadedFiles.length === 0 ? (
                 <div className="no-data">暂无上传记录</div>
             ) : (
-                <div className="data-grid files-list" ref={logContainerRef}>
+                <div className="data-grid files-list">
                   <table>
                     <thead>
                     <tr>
+                      <th>文件名</th>
                       <th>类型</th>
-                      <th>时间</th>
-                      <th>详情</th>
+                      <th>大小</th>
+                      <th>上传时间</th>
+                      <th>URL</th>
                       <th>操作</th>
                     </tr>
                     </thead>
                     <tbody>
-                    {uploadedFiles.map((item, index) => {
-                      if (item.url) {
-                        // 这是一个文件记录
-                        return (
-                            <tr key={index}>
-                              <td>文件</td>
-                              <td>{item.uploadTime}</td>
-                              <td>
-                                <div className="file-info">
-                                  <strong>{item.name}</strong>
-                                  <div className="url-cell">
-                                    <a href={item.url} target="_blank" rel="noopener noreferrer">
-                                      {item.url}
-                                    </a>
-                                  </div>
-                                </div>
-                              </td>
-                              <td>
-                                <button
-                                    className="copy-btn"
-                                    onClick={() => copyToClipboard(item.url)}
-                                    title="复制URL"
-                                >
-                                  复制
-                                </button>
-                                <button
-                                    className="delete-btn"
-                                    onClick={() => removeFile(index)}
-                                    title="从列表中移除"
-                                >
-                                  删除
-                                </button>
-                              </td>
-                            </tr>
-                        );
-                      } else {
-                        // 这是一个日志记录
-                        return (
-                            <tr key={index} className={`log-entry ${item.type.toLowerCase()}`}>
-                              <td>{item.type}</td>
-                              <td>{item.timestamp}</td>
-                              <td colSpan="2">{item.message}</td>
-                            </tr>
-                        );
-                      }
-                    })}
+                    {uploadedFiles.map((file, index) => (
+                        <tr key={index}>
+                          <td>{file.name}</td>
+                          <td>{file.type}</td>
+                          <td>{file.size}</td>
+                          <td>{file.uploadTime}</td>
+                          <td>
+                            <div className="url-cell">
+                              <a href={file.url} target="_blank" rel="noopener noreferrer">
+                                {file.url.length > 50 ? `${file.url.substring(0, 50)}...` : file.url}
+                              </a>
+                            </div>
+                          </td>
+                          <td>
+                            <button
+                                className="copy-btn"
+                                onClick={() => copyToClipboard(file.url)}
+                                title="复制URL"
+                            >
+                              复制
+                            </button>
+                            <button
+                                className="delete-btn"
+                                onClick={() => removeFile(index)}
+                                title="从列表中移除"
+                            >
+                              删除
+                            </button>
+                          </td>
+                        </tr>
+                    ))}
                     </tbody>
                   </table>
                 </div>
+            )}
+          </div>
+        </div>
+
+        <div className="log-panel">
+          <div className="section-header">
+            <h2>操作日志</h2>
+            <button
+                className="clear-logs"
+                onClick={clearLogs}
+                disabled={logs.length === 0}
+            >
+              清空日志
+            </button>
+          </div>
+          <div className="log-container" ref={logContainerRef}>
+            {logs.length === 0 ? (
+                <div className="no-data">暂无日志</div>
+            ) : (
+                logs.map((log, index) => (
+                    <div key={index} className={`log-entry ${log.type.toLowerCase()}`}>
+                      <span className="log-time">[{log.timestamp}]</span>
+                      <span className="log-type">[{log.type}]</span>
+                      <span className="log-message">{log.message}</span>
+                    </div>
+                ))
             )}
           </div>
         </div>
@@ -404,13 +339,15 @@ function ContractFormulaCalculator() {
               <li>使用"删除"按钮可从列表中移除文件记录（不会从S3删除文件）</li>
             </ul>
 
-            <h3>注意事项</h3>
-            <p>⚠️ <strong>重要提示：</strong> 在浏览器直接上传到S3存在限制。我们建议开发后端API来处理上传操作。</p>
+            <h3>关于此演示版本</h3>
+            <p>⚠️ <strong>重要提示：</strong> 此版本仅用于演示UI和交互流程，不会实际上传文件到S3服务器。</p>
+            <p>如需实现真正的文件上传功能，建议通过以下方式：</p>
             <ul>
-              <li>由于CORS和安全限制，浏览器直接上传到S3可能会失败</li>
-              <li>AWS访问密钥不应直接在前端使用</li>
-              <li>请勿上传敏感或私密信息</li>
+              <li>创建一个专门的后端API服务来处理文件上传</li>
+              <li>后端服务使用安全的方式将文件存储到S3</li>
+              <li>前端仅负责文件选择和显示上传结果</li>
             </ul>
+            <p>这种方式可以避免将AWS凭证暴露在前端，同时解决跨域(CORS)和权限问题。</p>
           </div>
         </div>
       </div>
